@@ -34,12 +34,14 @@ type testStruct struct {
 }
 
 var (
-	localRedisServer *miniredis.Miniredis      // The local in-memory redis instance
-	testRedisPool    *redis.Pool               // The pool used in all the tests, except for the "InvalidPool" ones.
-	invalidRedisPool *redis.Pool               // The pool used when in need to test invalid connection behaviours.
-	testKeyForGet    = "test:key:for-get:1234" // The test key used to test the Get operations
-	testKeyForSet    = "test:key:for-set:1234" // The test key used to test the Set operations
-	testValue        = testStruct{"1"}         // The test value being Set
+	localRedisServer *miniredis.Miniredis          // The local in-memory redis instance
+	testRedisPool    *redis.Pool                   // The pool used in all the tests, except for the "InvalidPool" ones.
+	invalidRedisPool *redis.Pool                   // The pool used when in need to test invalid connection behaviours.
+	testKeyForGet    = "test:key:for-get:1234"     // The test key used to test the Get operations
+	testKeyForSet    = "test:key:for-set:1234"     // The test key used to test the Set operations
+	testKeyForSetTTL = "test:key:for-set-ttl:1234" // The test key used to test the SetTTL operations
+	testKeyForDelete = "test:key:for-delete:1234"  // The test key used to test the Delete operations
+	testValue        = testStruct{"1"}             // The test value being Set
 )
 
 // startLocalRedisServer starts a local, in-memory redis instance for the tests.

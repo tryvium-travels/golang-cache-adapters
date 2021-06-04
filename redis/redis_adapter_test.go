@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/stretchr/testify/require"
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 	rediscacheadapters "github.com/tryvium-travels/golang-cache-adapters/redis"
@@ -159,6 +160,68 @@ func TestOpenSessionWithInvalidRedisPool(t *testing.T) {
 
 	_, err := adapter.OpenSession()
 	require.Error(t, err, "Should error on invalid session opening")
+}
+
+func TestSetTTLOK(t *testing.T) {
+	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
+
+	err := localRedisServer.Set(testKeyForSetTTL, "1")
+	require.NoError(t, err, "Must not error on setting test var")
+
+	err = adapter.SetTTL(testKeyForSetTTL, time.Second*5)
+	require.NoError(t, err, "Must not error on setting the expiration")
+
+	// goes into the future when the key is expired
+	localRedisServer.FastForward(time.Second * 6)
+
+	_, err = localRedisServer.Get(testKeyForSetTTL)
+	require.Equal(t, miniredis.ErrKeyNotFound, err, "Must not find the expired key")
+}
+
+func TestSetTTLExpired(t *testing.T) {
+	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
+
+	err := localRedisServer.Set(testKeyForSetTTL, "1")
+	require.NoError(t, err, "Must not error on setting test var")
+
+	err = adapter.SetTTL(testKeyForSetTTL, cacheadapters.TTLExpired)
+	require.NoError(t, err, "Must not error on setting the expiration")
+
+	_, err = localRedisServer.Get(testKeyForSetTTL)
+	require.Equal(t, miniredis.ErrKeyNotFound, err, "Must not find the expired key")
+}
+
+func TestSetTTLWithInvalidPool(t *testing.T) {
+	adapter, _ := rediscacheadapters.New(invalidRedisPool, time.Second)
+
+	err := localRedisServer.Set(testKeyForSetTTL, "1")
+	require.NoError(t, err, "Must not error on setting test var")
+
+	err = adapter.SetTTL(testKeyForSetTTL, time.Second)
+	require.Error(t, err, "Should error since the pool is invalid")
+}
+
+func TestDeleteOK(t *testing.T) {
+	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
+
+	err := localRedisServer.Set(testKeyForDelete, "1")
+	require.NoError(t, err, "Must not error on setting test var")
+
+	err = adapter.Delete(testKeyForDelete)
+	require.NoError(t, err, "Must not error on deleting the key")
+
+	_, err = localRedisServer.Get(testKeyForDelete)
+	require.Equal(t, miniredis.ErrKeyNotFound, err, "Must not find the deleted key")
+}
+
+func TestDeleteWithInvalidPool(t *testing.T) {
+	adapter, _ := rediscacheadapters.New(invalidRedisPool, time.Second)
+
+	err := localRedisServer.Set(testKeyForDelete, "1")
+	require.NoError(t, err, "Must not error on setting test var")
+
+	err = adapter.Delete(testKeyForDelete)
+	require.Error(t, err, "Should error since the pool is invalid")
 }
 
 func TestInTransactionOK(t *testing.T) {

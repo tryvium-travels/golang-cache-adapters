@@ -32,7 +32,7 @@ type RedisSessionAdapter struct {
 
 // NewSession creates a new Redis Cache Session adapter from
 // an existing Redis connection.
-func NewSession(conn redis.Conn, defaultTTL time.Duration) (*RedisSessionAdapter, error) {
+func NewSession(conn redis.Conn, defaultTTL time.Duration) (cacheadapters.CacheSessionAdapter, error) {
 	if conn == nil {
 		return nil, cacheadapters.ErrInvalidConnection
 	}
@@ -100,6 +100,27 @@ func (rsa *RedisSessionAdapter) Set(key string, object interface{}, TTL *time.Du
 	}
 
 	return nil
+}
+
+// SetTTL marks the specified key new expiration, deletes it via using
+// cacheadapters.TTLExpired or negative duration.
+func (rsa *RedisSessionAdapter) SetTTL(key string, newTTL time.Duration) error {
+	var err error
+
+	if newTTL > cacheadapters.TTLExpired {
+		_, err = rsa.conn.Do("EXPIRE", key, newTTL.Seconds())
+	} else {
+		return rsa.Delete(key)
+	}
+
+	return err
+}
+
+// Delete deletes a key from the cache.
+func (rsa *RedisSessionAdapter) Delete(key string) error {
+	_, err := rsa.conn.Do("DEL", key)
+
+	return err
 }
 
 // InTransaction allows to execute multiple Cache Sets and Gets in a Transaction, then tries to

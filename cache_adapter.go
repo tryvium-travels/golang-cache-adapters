@@ -18,16 +18,26 @@ import (
 	"time"
 )
 
+const TTLExpired time.Duration = 0
+
 // CacheAdapter represents a Cache Mechanism abstraction.
 type CacheAdapter interface {
 	// OpenSession opens a new Cache Session.
-	OpenSession() CacheSessionAdapter
+	OpenSession() (CacheSessionAdapter, error)
 
-	CacheSessionAdapter
+	cacheOperator
 }
 
 // CacheSessionAdapter represents a Cache Session Mechanism abstraction.
 type CacheSessionAdapter interface {
+	// Close closes the Cache Session.
+	Close() error
+
+	cacheOperator
+}
+
+// cacheOperator is an intermediary interface to share methods between CacheAdapter and CacheSessionAdapter
+type cacheOperator interface {
 	// Get obtains a value from the cache using a key, then tries to unmarshal
 	// it into the object reference passed as parameter.
 	Get(key string, objectRef interface{}) error
@@ -35,10 +45,14 @@ type CacheSessionAdapter interface {
 	// Set sets a value represented by the object parameter into the cache, with the specified key.
 	Set(key string, object interface{}, TTL *time.Duration) error
 
+	// SetTTL marks the specified key new expiration, deletes it via using
+	// cacheadapters.TTLExpired or negative duration.
+	SetTTL(key string, newTTL time.Duration) error
+
+	// Delete deletes a key from the cache.
+	Delete(key string) error
+
 	// InTransaction allows to execute multiple Cache Sets and Gets in a Transaction, then tries to
 	// Unmarshal the array of results into the specified array of object references.
 	InTransaction(inTransactionFunc func(adapter CacheSessionAdapter) error, objectRefs []interface{}) error
-
-	// Close closes the Cache Session.
-	Close() error
 }

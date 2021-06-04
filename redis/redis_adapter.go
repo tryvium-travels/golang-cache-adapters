@@ -29,7 +29,7 @@ type RedisAdapter struct {
 }
 
 // New creates a new RedisAdapter from an initialized Redis pool.
-func New(pool *redis.Pool, defaultTTL time.Duration) (*RedisAdapter, error) {
+func New(pool *redis.Pool, defaultTTL time.Duration) (cacheadapters.CacheAdapter, error) {
 	if pool == nil {
 		return nil, fmt.Errorf("the Redis Pool cannot be nil")
 	}
@@ -81,6 +81,31 @@ func (ra *RedisAdapter) Set(key string, object interface{}, TTL *time.Duration) 
 	defer rsa.Close()
 
 	return rsa.Set(key, object, TTL)
+}
+
+// SetTTL marks the specified key new expiration, deletes it via using
+// cacheadapters.TTLExpired or negative duration.
+func (ra *RedisAdapter) SetTTL(key string, newTTL time.Duration) error {
+	rsa, err := ra.OpenSession()
+	if err != nil {
+		return err
+	}
+
+	defer rsa.Close()
+
+	return rsa.SetTTL(key, newTTL)
+}
+
+// Delete deletes a key from the cache.
+func (ra *RedisAdapter) Delete(key string) error {
+	rsa, err := ra.OpenSession()
+	if err != nil {
+		return err
+	}
+
+	defer rsa.Close()
+
+	return rsa.Delete(key)
 }
 
 // InTransaction allows to execute multiple Cache Sets and Gets in a Transaction, then tries to

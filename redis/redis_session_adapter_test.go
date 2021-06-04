@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/gomodule/redigo/redis"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -194,6 +195,56 @@ func TestSessionSetWithNegativeTTL(t *testing.T) {
 
 	err := session.Set(testKeyForSet, testValue, duration)
 	require.Error(t, err, "Should give error on setting a value with negative time Duration for TTL")
+}
+
+func TestSessionSetTTLOK(t *testing.T) {
+	conn := initConnection(t)
+	defer conn.Close()
+
+	session, _ := rediscacheadapters.NewSession(conn, time.Second)
+
+	err := localRedisServer.Set(testKeyForSetTTL, "1")
+	require.NoError(t, err, "Must not error on setting test var")
+
+	err = session.SetTTL(testKeyForSetTTL, time.Second*5)
+	require.NoError(t, err, "Must not error on setting the expiration")
+
+	// goes into the future when the key is expired
+	localRedisServer.FastForward(time.Second * 6)
+
+	_, err = localRedisServer.Get(testKeyForSetTTL)
+	require.Equal(t, miniredis.ErrKeyNotFound, err, "Must not find the expired key")
+}
+
+func TestSessionSetTTLExpired(t *testing.T) {
+	conn := initConnection(t)
+	defer conn.Close()
+
+	session, _ := rediscacheadapters.NewSession(conn, time.Second)
+
+	err := localRedisServer.Set(testKeyForSetTTL, "1")
+	require.NoError(t, err, "Must not error on setting test var")
+
+	err = session.SetTTL(testKeyForSetTTL, cacheadapters.TTLExpired)
+	require.NoError(t, err, "Must not error on setting the expiration")
+
+	_, err = localRedisServer.Get(testKeyForSetTTL)
+	require.Equal(t, miniredis.ErrKeyNotFound, err, "Must not find the expired key")
+}
+
+func TestSessionSetTTLWithInvalidConnection(t *testing.T) {
+	conn := initConnection(t)
+
+	// by closing the connection we make it invalid
+	conn.Close()
+
+	session, _ := rediscacheadapters.NewSession(conn, time.Second)
+
+	err := localRedisServer.Set(testKeyForSetTTL, "1")
+	require.NoError(t, err, "Must not error on setting test var")
+
+	err = session.SetTTL(testKeyForSetTTL, time.Second)
+	require.Error(t, err, "Should error since the conn is invalid")
 }
 
 func TestSessionInTransactionWithNilFunc(t *testing.T) {
