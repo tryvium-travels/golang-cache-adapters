@@ -32,7 +32,9 @@ or use go modules, it should take care of this automagically.
 
 The `CacheAdapter` interface offers 2 main ways to access a cache: `Get` and `Set` methods.
 You can also use `InTransaction` function when you need to perform multiple operations in
-the same session.
+the same session. 
+
+You can use `Delete` and `SetTTL` functions as well. For more info, check the docs.
 
 This example creates a new `RedisAdapter` and uses it, but you can replace it with any of the other
 supported Adapters.
@@ -97,7 +99,7 @@ func main() {
 
 	// use InTransaction when you need to perform multiple operations
 	// in the same session.
-	err = adapter.InTransaction(func(adapter cacheadapters.CacheSessionAdapter) error {
+	err = adapter.InTransaction(func(session cacheadapters.CacheSessionAdapter) error {
 		err = adapter.Get(exampleKey, nil)
 		if err != nil {
 			return err
@@ -105,7 +107,7 @@ func main() {
 
 		exampleValue.Value = "2"
 
-		err = adapter.Set(exampleKey, exampleValue, nil)
+		err = session.Set(exampleKey, exampleValue, nil)
 		if err != nil {
 			return err
 		}
