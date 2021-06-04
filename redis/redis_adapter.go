@@ -51,11 +51,7 @@ func (ra *RedisAdapter) OpenSession() (cacheadapters.CacheSessionAdapter, error)
 		return nil, err
 	}
 
-	return &RedisSessionAdapter{
-		conn:          conn,
-		defaultTTL:    ra.defaultTTL,
-		inTransaction: false,
-	}, nil
+	return NewSession(conn, ra.defaultTTL)
 }
 
 // Get obtains a value from the cache using a key, then tries to unmarshal
@@ -110,7 +106,7 @@ func (ra *RedisAdapter) Delete(key string) error {
 
 // InTransaction allows to execute multiple Cache Sets and Gets in a Transaction, then tries to
 // Unmarshal the array of results into the specified array of object references.
-func (ra *RedisAdapter) InTransaction(inTransactionFunc func(adapter cacheadapters.CacheSessionAdapter) error, objectRefs []interface{}) error {
+func (ra *RedisAdapter) InTransaction(inTransactionFunc cacheadapters.InTransactionFunc, objectRefs []interface{}) error {
 	rsa, err := ra.OpenSession()
 	if err != nil {
 		return err

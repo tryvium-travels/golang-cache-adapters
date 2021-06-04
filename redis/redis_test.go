@@ -24,14 +24,9 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gomodule/redigo/redis"
+	"github.com/stretchr/testify/mock"
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 )
-
-// testStruct is just an example struct to check if the json
-// marchalling and unmarshalling are correct in all tests.
-type testStruct struct {
-	Value string `json:"value"`
-}
 
 var (
 	localRedisServer *miniredis.Miniredis          // The local in-memory redis instance
@@ -44,13 +39,43 @@ var (
 	testValue        = testStruct{"1"}             // The test value being Set
 )
 
+// testStruct is just an example struct to check if the json
+// marchalling and unmarshalling are correct in all tests.
+type testStruct struct {
+	Value string `json:"value"`
+}
+
+// erroringMockedRedisConn mocks the redis call to increase code coverage
+type erroringMockedRedisConn struct {
+	mock.Mock
+	redis.Conn
+}
+
+type erroringMockedSENDMULTIRedisConn struct {
+	*erroringMockedRedisConn
+}
+
+func (emc *erroringMockedSENDMULTIRedisConn) Send(commandName string, args ...interface{}) error {
+	mockArgs := emc.Called(append([]interface{}{commandName}, args...)...)
+	return mockArgs.Error(0)
+}
+
+type erroringMockedDOEXECRedisConn struct {
+	*erroringMockedSENDMULTIRedisConn
+}
+
+func (emc *erroringMockedDOEXECRedisConn) Do(commandName string, args ...interface{}) (interface{}, error) {
+	mockArgs := emc.Called(append([]interface{}{commandName}, args...)...)
+	return mockArgs.Get(0), mockArgs.Error(1)
+}
+
 // startLocalRedisServer starts a local, in-memory redis instance for the tests.
 func startLocalRedisServer() {
 	var err error
 
 	invalidRedisPool = &redis.Pool{
 		Dial: func() (redis.Conn, error) {
-			return nil, errors.New("I fail perché si")
+			return nil, errors.New("TESTING INVALID DIAL FROM POOL")
 		},
 	}
 
@@ -84,7 +109,8 @@ func startLocalRedisServer() {
 	}
 }
 
-// stopLocalRedisServer stops the previously started, local, in-memory Redis instance.
+// stopLocalRedisServer stops the previously started,
+// local, in-memory Redis instance.
 func stopLocalRedisServer() {
 	localRedisServer.Close()
 }
@@ -107,14 +133,20 @@ func inTransactionFunc(session cacheadapters.CacheSessionAdapter) error {
 	return nil
 }
 
+func nestedInTransactionFunc(session cacheadapters.CacheSessionAdapter) error {
+	return session.InTransaction(func(session cacheadapters.CacheSessionAdapter) error {
+		return nil
+	}, nil)
+}
+
 func erroringInTransactionFunc(session cacheadapters.CacheSessionAdapter) error {
 	return fmt.Errorf("THIS IS AN ERROR TO PROVE ERRORING FUNCTIONS ALSO WORK IN TESTS")
 }
 
 // TestMain adds Global test setups and teardowns.
 func TestMain(m *testing.M) {
-	startLocalRedisServer()
-	defer stopLocalRedisServer()
+	startLocalRedisServer()      // <--
+	defer stopLocalRedisServer() // <--
 
 	code := m.Run()
 

@@ -22,7 +22,6 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gomodule/redigo/redis"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 	rediscacheadapters "github.com/tryvium-travels/golang-cache-adapters/redis"
@@ -262,6 +261,18 @@ func TestSessionInTransactionWithNilFunc(t *testing.T) {
 	require.NoError(t, err, "Should not error since the inTransactionFunc, but should do nothing")
 }
 
+func TestSessionInTransactionWithNestedFunc(t *testing.T) {
+	conn := initConnection(t)
+	defer conn.Close()
+
+	session, _ := rediscacheadapters.NewSession(conn, time.Second)
+
+	refs := []interface{}{}
+
+	err := session.InTransaction(nestedInTransactionFunc, refs)
+	require.Equal(t, cacheadapters.ErrNoNestedTransactions, err, "Should error with a nested InTransaction call")
+}
+
 func TestSessionInTransactionWithErroringFunc(t *testing.T) {
 	conn := initConnection(t)
 	defer conn.Close()
@@ -277,28 +288,169 @@ func TestSessionInTransactionWithErroringFunc(t *testing.T) {
 	require.Error(t, err, "Should error since the inTransactionFunc is erroring")
 }
 
-// erroringSENDMULTIMockedConn mocks the multi call to increase code coverage
-type erroringSENDMULTIMockedConn struct {
-	mock.Mock
-	redis.Conn
-}
+func TestSessionInTransactionWithNilTransactionResults(t *testing.T) {
+	conn := &erroringMockedDOEXECRedisConn{
+		erroringMockedSENDMULTIRedisConn: &erroringMockedSENDMULTIRedisConn{
+			erroringMockedRedisConn: &erroringMockedRedisConn{
+				Conn: initConnection(t),
+			},
+		},
+	}
+	defer conn.Close()
 
-func (emc *erroringSENDMULTIMockedConn) Send(commandName string, args ...interface{}) error {
-	if commandName == "MULTI" {
-		mockArgs := emc.Called(append([]interface{}{commandName}, args...)...)
-		return mockArgs.Error(0)
+	conn.On("Send", "MULTI").Return(nil)
+	conn.On("Send", "GET", testKeyForGet).Return(nil)
+	conn.On("Send", "SETEX", testKeyForSet, float64(1), []byte(`{"value":"2"}`)).Return(nil)
+	conn.On("Do", "EXEC").Return([]interface{}{nil, nil}, nil)
+
+	session, _ := rediscacheadapters.NewSession(conn, time.Second)
+
+	refs := []interface{}{
+		&testStruct{},
+		nil,
 	}
 
-	return emc.Conn.Send(commandName, args...)
+	err := session.InTransaction(inTransactionFunc, refs)
+	require.Equal(t, cacheadapters.ErrInTransactionMarshalValue, err, "Should error since the transactionResults are nil but expecting to be parsed")
+}
+
+func TestSessionInTransactionWithNilObjectReferences(t *testing.T) {
+	conn := &erroringMockedDOEXECRedisConn{
+		erroringMockedSENDMULTIRedisConn: &erroringMockedSENDMULTIRedisConn{
+			erroringMockedRedisConn: &erroringMockedRedisConn{
+				Conn: initConnection(t),
+			},
+		},
+	}
+	defer conn.Close()
+
+	conn.On("Send", "MULTI").Return(nil)
+	conn.On("Send", "GET", testKeyForGet).Return(nil)
+	conn.On("Send", "SETEX", testKeyForSet, float64(1), []byte(`{"value":"2"}`)).Return(nil)
+	conn.On("Do", "EXEC").Return([]interface{}{nil, nil}, nil)
+
+	session, _ := rediscacheadapters.NewSession(conn, time.Second)
+
+	refs := []interface{}{
+		nil,
+		nil,
+	}
+
+	err := session.InTransaction(inTransactionFunc, refs)
+	require.NoError(t, err, "Should not error since the transactionResults are nil but expecting to be parsed into nil values")
+}
+
+func TestSessionInTransactionWithErroringNonNilTransactionResults(t *testing.T) {
+	conn := &erroringMockedDOEXECRedisConn{
+		erroringMockedSENDMULTIRedisConn: &erroringMockedSENDMULTIRedisConn{
+			erroringMockedRedisConn: &erroringMockedRedisConn{
+				Conn: initConnection(t),
+			},
+		},
+	}
+	defer conn.Close()
+
+	conn.On("Send", "MULTI").Return(nil)
+	conn.On("Send", "GET", testKeyForGet).Return(nil)
+	conn.On("Send", "SETEX", testKeyForSet, float64(1), []byte(`{"value":"2"}`)).Return(nil)
+	conn.On("Do", "EXEC").Return([]interface{}{"OK", nil}, nil)
+
+	session, _ := rediscacheadapters.NewSession(conn, time.Second)
+
+	refs := []interface{}{
+		&testStruct{},
+		nil,
+	}
+
+	err := session.InTransaction(inTransactionFunc, refs)
+	require.Equal(t, cacheadapters.ErrInTransactionMarshalValue, err, "Should error since the transactionResults are nil but expecting to be parsed")
+}
+
+func TestSessionInTransactionWithErroringTransactionResults(t *testing.T) {
+	conn := &erroringMockedDOEXECRedisConn{
+		erroringMockedSENDMULTIRedisConn: &erroringMockedSENDMULTIRedisConn{
+			erroringMockedRedisConn: &erroringMockedRedisConn{
+				Conn: initConnection(t),
+			},
+		},
+	}
+	defer conn.Close()
+
+	conn.On("Send", "MULTI").Return(nil)
+	conn.On("Send", "GET", testKeyForGet).Return(nil)
+	conn.On("Send", "SETEX", testKeyForSet, float64(1), []byte(`{"value":"2"}`)).Return(nil)
+	conn.On("Do", "EXEC").Return(nil, fmt.Errorf("I TEST FAILING DO EXEC"))
+
+	session, _ := rediscacheadapters.NewSession(conn, time.Second)
+
+	refs := []interface{}{
+		&testStruct{},
+		nil,
+	}
+
+	err := session.InTransaction(inTransactionFunc, refs)
+	require.Error(t, err, "Should error since the transactionResults are not got")
+}
+
+func TestSessionInTransactionWithErroringNonNilTransactionResultsNotString(t *testing.T) {
+	conn := &erroringMockedDOEXECRedisConn{
+		erroringMockedSENDMULTIRedisConn: &erroringMockedSENDMULTIRedisConn{
+			erroringMockedRedisConn: &erroringMockedRedisConn{
+				Conn: initConnection(t),
+			},
+		},
+	}
+	defer conn.Close()
+
+	conn.On("Send", "MULTI").Return(nil)
+	conn.On("Send", "GET", testKeyForGet).Return(nil)
+	conn.On("Send", "SETEX", testKeyForSet, float64(1), []byte(`{"value":"2"}`)).Return(nil)
+	conn.On("Do", "EXEC").Return([]interface{}{complex128(1), nil}, nil)
+
+	session, _ := rediscacheadapters.NewSession(conn, time.Second)
+
+	refs := []interface{}{
+		&testStruct{},
+		nil,
+	}
+
+	err := session.InTransaction(inTransactionFunc, refs)
+	require.Equal(t, cacheadapters.ErrInTransactionMarshalValue, err, "Should error since the transactionResults are nil but expecting to be parsed")
+}
+
+func TestSessionInTransactionWithErroringNonNilTransactionResultsNotOKString(t *testing.T) {
+	conn := &erroringMockedDOEXECRedisConn{
+		erroringMockedSENDMULTIRedisConn: &erroringMockedSENDMULTIRedisConn{
+			erroringMockedRedisConn: &erroringMockedRedisConn{
+				Conn: initConnection(t),
+			},
+		},
+	}
+	defer conn.Close()
+
+	conn.On("Send", "MULTI").Return(nil)
+	conn.On("Send", "GET", testKeyForGet).Return(nil)
+	conn.On("Send", "SETEX", testKeyForSet, float64(1), []byte(`{"value":"2"}`)).Return(nil)
+	conn.On("Do", "EXEC").Return([]interface{}{`{"value":"2"}`, nil}, nil)
+
+	session, _ := rediscacheadapters.NewSession(conn, time.Second)
+
+	refs := []interface{}{
+		&testStruct{},
+		nil,
+	}
+
+	err := session.InTransaction(inTransactionFunc, refs)
+	require.NoError(t, err, "Should not error it is a valid String Value, different from 'OK'")
 }
 
 func TestSessionInTransactionWithInvalidConnection(t *testing.T) {
-	conn := &erroringSENDMULTIMockedConn{
-		Conn: initConnection(t),
+	conn := &erroringMockedSENDMULTIRedisConn{
+		erroringMockedRedisConn: &erroringMockedRedisConn{
+			Conn: initConnection(t),
+		},
 	}
-
-	// by closing the connection we make it invalid
-	conn.Close()
+	defer conn.Close()
 
 	conn.On("Send", "MULTI").Return(fmt.Errorf("THIS ERRORS TO VALIDATE THE INVALID CONNECTION TEST"))
 

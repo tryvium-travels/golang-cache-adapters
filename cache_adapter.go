@@ -20,6 +20,10 @@ import (
 
 const TTLExpired time.Duration = 0
 
+// InTransactionFunc is a function executed inside an InTransaction calls
+// of CacheAdapter and CacheSessionAdapter objects.
+type InTransactionFunc func(adapter CacheSessionAdapter) error
+
 // CacheAdapter represents a Cache Mechanism abstraction.
 type CacheAdapter interface {
 	// OpenSession opens a new Cache Session.
@@ -54,5 +58,5 @@ type cacheOperator interface {
 
 	// InTransaction allows to execute multiple Cache Sets and Gets in a Transaction, then tries to
 	// Unmarshal the array of results into the specified array of object references.
-	InTransaction(inTransactionFunc func(adapter CacheSessionAdapter) error, objectRefs []interface{}) error
+	InTransaction(inTransactionFunc InTransactionFunc, objectRefs []interface{}) error
 }

@@ -16,6 +16,7 @@ package rediscacheadapters
 
 import (
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/gomodule/redigo/redis"
@@ -28,6 +29,7 @@ type RedisSessionAdapter struct {
 	conn          redis.Conn    // The redis connection used to connect.
 	defaultTTL    time.Duration // The defaultTTL of the Set operations.
 	inTransaction bool          // True if inside a transaction.
+	mutex         *sync.Mutex   // mutex to handle transactions.
 }
 
 // NewSession creates a new Redis Cache Session adapter from
@@ -45,6 +47,7 @@ func NewSession(conn redis.Conn, defaultTTL time.Duration) (cacheadapters.CacheS
 		conn:          conn,
 		defaultTTL:    defaultTTL,
 		inTransaction: false,
+		mutex:         &sync.Mutex{},
 	}, nil
 }
 
@@ -125,12 +128,19 @@ func (rsa *RedisSessionAdapter) Delete(key string) error {
 
 // InTransaction allows to execute multiple Cache Sets and Gets in a Transaction, then tries to
 // Unmarshal the array of results into the specified array of object references.
-func (rsa *RedisSessionAdapter) InTransaction(inTransactionFunc func(adapter cacheadapters.CacheSessionAdapter) error, objectRefs []interface{}) error {
-	rsa.inTransaction = true
+func (rsa *RedisSessionAdapter) InTransaction(inTransactionFunc cacheadapters.InTransactionFunc, objectRefs []interface{}) error {
+	if rsa.inTransaction {
+		return cacheadapters.ErrNoNestedTransactions
+	}
 
+	rsa.mutex.Lock()
+	rsa.inTransaction = true
 	defer func() {
+		rsa.mutex.Lock()
 		rsa.inTransaction = false
+		rsa.mutex.Unlock()
 	}()
+	rsa.mutex.Unlock()
 
 	if inTransactionFunc == nil {
 		return nil
@@ -144,9 +154,10 @@ func (rsa *RedisSessionAdapter) InTransaction(inTransactionFunc func(adapter cac
 	err = inTransactionFunc(rsa)
 	if err != nil {
 		rsa.conn.Do("DISCARD")
+		return err
 	}
 
-	transactionResultContents, err := redis.Strings(rsa.conn.Do("EXEC"))
+	transactionResults, err := redis.Values(rsa.conn.Do("EXEC"))
 	if err != nil {
 		return err
 	}
@@ -155,14 +166,35 @@ func (rsa *RedisSessionAdapter) InTransaction(inTransactionFunc func(adapter cac
 		return cacheadapters.ErrGetRequiresObjectReference
 	}
 
-	if len(objectRefs) != len(transactionResultContents) {
+	if len(objectRefs) != len(transactionResults) {
 		return cacheadapters.ErrInTransactionObjectReferencesLengthMismatch
 	}
 
-	for i, result := range transactionResultContents {
-		if result == "OK" {
-			objectRefs[i] = nil
-			continue
+	for i, transactionResult := range transactionResults {
+		if transactionResult == nil {
+			if objectRefs[i] == nil {
+				continue
+			}
+			return cacheadapters.ErrInTransactionMarshalValue
+		}
+
+		result, ok := transactionResult.([]byte)
+		if !ok {
+			resultString, ok := transactionResult.(string)
+			isOkString := resultString == "OK"
+			if ok {
+				if isOkString {
+					if objectRefs[i] == nil {
+						continue
+					} else {
+						return cacheadapters.ErrInTransactionMarshalValue
+					}
+				} else {
+					result = []byte(resultString)
+				}
+			} else {
+				return cacheadapters.ErrInTransactionMarshalValue
+			}
 		}
 
 		err := json.Unmarshal([]byte(result), objectRefs[i])
