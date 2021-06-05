@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 	rediscacheadapters "github.com/tryvium-travels/golang-cache-adapters/redis"
+	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
 
 func initConnection(t *testing.T) redis.Conn {
@@ -61,9 +62,9 @@ func TestSessionGetOK(t *testing.T) {
 
 	session, _ := rediscacheadapters.NewSession(conn, time.Second)
 
-	var actual testStruct
-	err := session.Get(testKeyForGet, &actual)
-	require.Equal(t, testValue, actual, "Should be the correct value on a correct get and key not expired")
+	var actual testutil.TestStruct
+	err := session.Get(testutil.TestKeyForGet, &actual)
+	require.Equal(t, testutil.TestValue, actual, "Should be the correct value on a correct get and key not expired")
 	require.NoError(t, err, "Should not return an error on valid object reference")
 }
 
@@ -73,7 +74,7 @@ func TestSessionGetWithNilReference(t *testing.T) {
 
 	session, _ := rediscacheadapters.NewSession(conn, time.Second)
 
-	err := session.Get(testKeyForGet, nil)
+	err := session.Get(testutil.TestKeyForGet, nil)
 	require.Equal(t, cacheadapters.ErrGetRequiresObjectReference, err, "Should return ErrGetRequiresObjectReference on nil object reference")
 }
 
@@ -84,7 +85,7 @@ func TestSessionGetWithNonUnmarshalableReference(t *testing.T) {
 	session, _ := rediscacheadapters.NewSession(conn, time.Second)
 
 	actual := complex128(1)
-	err := session.Get(testKeyForGet, &actual)
+	err := session.Get(testutil.TestKeyForGet, &actual)
 	require.Error(t, err, "Should return an error on non unmarshalable object reference")
 }
 
@@ -94,29 +95,29 @@ func TestSessionGetWithInvalidConnection(t *testing.T) {
 	// by closing the connection we make it invalid
 	conn.Close()
 
-	testKeyForGetButInvalid := fmt.Sprintf("%s:but-invalid", testKeyForGet)
+	testKeyForGetButInvalid := fmt.Sprintf("%s:but-invalid", testutil.TestKeyForGet)
 
 	session, _ := rediscacheadapters.NewSession(conn, time.Second)
 
-	var actual testStruct
+	var actual testutil.TestStruct
 	err := session.Get(testKeyForGetButInvalid, &actual)
 
-	require.Equal(t, testStruct{}, actual, "Actual should remain empty since the connection is invalid (already closed)")
+	require.Equal(t, testutil.TestStruct{}, actual, "Actual should remain empty since the connection is invalid (already closed)")
 	require.Error(t, err, "Should error since the connection is invalid (already closed)")
 }
 
 func TestSessionGetWithInvalidKey(t *testing.T) {
-	testKeyForGetButInvalid := fmt.Sprintf("%s:but-invalid", testKeyForGet)
+	testKeyForGetButInvalid := fmt.Sprintf("%s:but-invalid", testutil.TestKeyForGet)
 
 	conn := initConnection(t)
 	defer conn.Close()
 
 	session, _ := rediscacheadapters.NewSession(conn, time.Second)
 
-	var actual testStruct
+	var actual testutil.TestStruct
 	err := session.Get(testKeyForGetButInvalid, &actual)
 
-	require.Equal(t, testStruct{}, actual, "Actual should remain empty since the key is invalid")
+	require.Equal(t, testutil.TestStruct{}, actual, "Actual should remain empty since the key is invalid")
 	require.Equal(t, cacheadapters.ErrNotFound, err, "Should be ErrNotFound since the key is invalid")
 }
 
@@ -129,17 +130,17 @@ func TestSessionSetOK(t *testing.T) {
 	duration := new(time.Duration)
 	*duration = time.Second
 
-	err := session.Set(testKeyForSet, testValue, duration)
+	err := session.Set(testutil.TestKeyForSet, testutil.TestValue, duration)
 	require.NoError(t, err, "Should not error on valid set")
 
-	testValueContent, err := localRedisServer.Get(testKeyForSet)
+	testValueContent, err := localRedisServer.Get(testutil.TestKeyForSet)
 	require.NoError(t, err, "Value just set must exist, hence no error")
 
-	var actual testStruct
+	var actual testutil.TestStruct
 	err = json.Unmarshal([]byte(testValueContent), &actual)
 	require.NoError(t, err, "Value just set be a valid JSON, hence no error")
 
-	require.Equal(t, testValue, actual, "The value just set must be equal to the test value")
+	require.Equal(t, testutil.TestValue, actual, "The value just set must be equal to the test value")
 }
 
 func TestSessionSetOKWithNilTTL(t *testing.T) {
@@ -148,17 +149,17 @@ func TestSessionSetOKWithNilTTL(t *testing.T) {
 
 	session, _ := rediscacheadapters.NewSession(conn, time.Second)
 
-	err := session.Set(testKeyForSet, testValue, nil)
+	err := session.Set(testutil.TestKeyForSet, testutil.TestValue, nil)
 	require.NoError(t, err, "Should not error on valid set")
 
-	testValueContent, err := localRedisServer.Get(testKeyForSet)
+	testValueContent, err := localRedisServer.Get(testutil.TestKeyForSet)
 	require.NoError(t, err, "Value just set must exist, hence no error")
 
-	var actual testStruct
+	var actual testutil.TestStruct
 	err = json.Unmarshal([]byte(testValueContent), &actual)
 	require.NoError(t, err, "Value just set be a valid JSON, hence no error")
 
-	require.Equal(t, testValue, actual, "The value just set must be equal to the test value")
+	require.Equal(t, testutil.TestValue, actual, "The value just set must be equal to the test value")
 }
 
 func TestSessionSetWithInvalidConnection(t *testing.T) {
@@ -169,7 +170,7 @@ func TestSessionSetWithInvalidConnection(t *testing.T) {
 
 	session, _ := rediscacheadapters.NewSession(conn, time.Second)
 
-	err := session.Set(testKeyForSet, testValue, nil)
+	err := session.Set(testutil.TestKeyForSet, testutil.TestValue, nil)
 	require.Error(t, err, "Should error since the connection is invalid (already closed)")
 }
 
@@ -180,7 +181,7 @@ func TestSessionSetWithNonUnmarshalableReference(t *testing.T) {
 	session, _ := rediscacheadapters.NewSession(conn, time.Second)
 
 	actualNonUnmarshallable := complex128(1)
-	err := session.Set(testKeyForSet, actualNonUnmarshallable, nil)
+	err := session.Set(testutil.TestKeyForSet, actualNonUnmarshallable, nil)
 	require.Error(t, err, "Should error since the value is not unmarshallable")
 }
 func TestSessionSetWithNegativeTTL(t *testing.T) {
@@ -192,7 +193,7 @@ func TestSessionSetWithNegativeTTL(t *testing.T) {
 	duration := new(time.Duration)
 	*duration = -time.Second
 
-	err := session.Set(testKeyForSet, testValue, duration)
+	err := session.Set(testutil.TestKeyForSet, testutil.TestValue, duration)
 	require.Error(t, err, "Should give error on setting a value with negative time Duration for TTL")
 }
 
@@ -202,16 +203,16 @@ func TestSessionSetTTLOK(t *testing.T) {
 
 	session, _ := rediscacheadapters.NewSession(conn, time.Second)
 
-	err := localRedisServer.Set(testKeyForSetTTL, "1")
+	err := localRedisServer.Set(testutil.TestKeyForSetTTL, "1")
 	require.NoError(t, err, "Must not error on setting test var")
 
-	err = session.SetTTL(testKeyForSetTTL, time.Second*5)
+	err = session.SetTTL(testutil.TestKeyForSetTTL, time.Second*5)
 	require.NoError(t, err, "Must not error on setting the expiration")
 
 	// goes into the future when the key is expired
 	localRedisServer.FastForward(time.Second * 6)
 
-	_, err = localRedisServer.Get(testKeyForSetTTL)
+	_, err = localRedisServer.Get(testutil.TestKeyForSetTTL)
 	require.Equal(t, miniredis.ErrKeyNotFound, err, "Must not find the expired key")
 }
 
@@ -221,13 +222,13 @@ func TestSessionSetTTLExpired(t *testing.T) {
 
 	session, _ := rediscacheadapters.NewSession(conn, time.Second)
 
-	err := localRedisServer.Set(testKeyForSetTTL, "1")
+	err := localRedisServer.Set(testutil.TestKeyForSetTTL, "1")
 	require.NoError(t, err, "Must not error on setting test var")
 
-	err = session.SetTTL(testKeyForSetTTL, cacheadapters.TTLExpired)
+	err = session.SetTTL(testutil.TestKeyForSetTTL, cacheadapters.TTLExpired)
 	require.NoError(t, err, "Must not error on setting the expiration")
 
-	_, err = localRedisServer.Get(testKeyForSetTTL)
+	_, err = localRedisServer.Get(testutil.TestKeyForSetTTL)
 	require.Equal(t, miniredis.ErrKeyNotFound, err, "Must not find the expired key")
 }
 
@@ -239,9 +240,9 @@ func TestSessionSetTTLWithInvalidConnection(t *testing.T) {
 
 	session, _ := rediscacheadapters.NewSession(conn, time.Second)
 
-	err := localRedisServer.Set(testKeyForSetTTL, "1")
+	err := localRedisServer.Set(testutil.TestKeyForSetTTL, "1")
 	require.NoError(t, err, "Must not error on setting test var")
 
-	err = session.SetTTL(testKeyForSetTTL, time.Second)
+	err = session.SetTTL(testutil.TestKeyForSetTTL, time.Second)
 	require.Error(t, err, "Should error since the conn is invalid")
 }

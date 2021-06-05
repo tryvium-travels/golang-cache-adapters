@@ -17,6 +17,9 @@ package cacheadapters
 import "fmt"
 
 var (
+	// ErrNilSubAdapter will come out if you try to pass a nil sub-adapter when creating
+	// a new MultiCacheAdapter.
+	ErrNilSubAdapter = fmt.Errorf("cannot pass a nil sub-adapter to NewMultiCacheAdapter")
 	//ErrInvalidConnection will come out if you try to use an invalid connection in a session.
 	ErrInvalidConnection = fmt.Errorf("cannot use an invalid connection")
 	// ErrNotFound will come out if a key is not found in the cache.
@@ -27,4 +30,8 @@ var (
 	// ErrInvalidTTL will come out if you try to set a zero-or-negative
 	// TTL in a Set operation.
 	ErrInvalidTTL = fmt.Errorf("cannot provide a negative TTL to Set operations")
+	// errNotImplemented will come out if you are a bad dev and you did
+	// not implement the method which returns this error. You should see this error
+	// only during development.
+	errNotImplemented = fmt.Errorf("DEBUG: this method has not been implemented yet")
 )

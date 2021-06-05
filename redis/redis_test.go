@@ -20,28 +20,21 @@ import (
 	"log"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gomodule/redigo/redis"
 	"github.com/stretchr/testify/mock"
+
+	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
+	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
 
 var (
-	localRedisServer *miniredis.Miniredis          // The local in-memory redis instance
-	testRedisPool    *redis.Pool                   // The pool used in all the tests, except for the "InvalidPool" ones.
-	invalidRedisPool *redis.Pool                   // The pool used when in need to test invalid connection behaviours.
-	testKeyForGet    = "test:key:for-get:1234"     // The test key used to test the Get operations
-	testKeyForSet    = "test:key:for-set:1234"     // The test key used to test the Set operations
-	testKeyForSetTTL = "test:key:for-set-ttl:1234" // The test key used to test the SetTTL operations
-	testKeyForDelete = "test:key:for-delete:1234"  // The test key used to test the Delete operations
-	testValue        = testStruct{"1"}             // The test value being Set
+	localRedisServer *miniredis.Miniredis // The local in-memory redis instance
+	testRedisPool    *redis.Pool          // The pool used in all the tests, except for the "InvalidPool" ones.
+	invalidRedisPool *redis.Pool          // The pool used when in need to test invalid connection behaviours.
 )
-
-// testStruct is just an example struct to check if the json
-// marchalling and unmarshalling are correct in all tests.
-type testStruct struct {
-	Value string `json:"value"`
-}
 
 // erroringMockedRedisConn mocks the redis call to increase code coverage
 type erroringMockedRedisConn struct {
@@ -67,6 +60,25 @@ func (emc *erroringMockedDOEXECRedisConn) Do(commandName string, args ...interfa
 	return mockArgs.Get(0), mockArgs.Error(1)
 }
 
+func setGetExFloat64InTransactionFunc(session cacheadapters.CacheSessionAdapter) error {
+	err := session.Set(testutil.TestKeyForSet, 2.5, nil)
+	if err != nil {
+		return err
+	}
+
+	err = session.Get(testutil.TestKeyForSet, nil)
+	if err != nil {
+		return err
+	}
+
+	err = session.SetTTL(testutil.TestKeyForSet, time.Second)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // startLocalRedisServer starts a local, in-memory redis instance for the tests.
 func startLocalRedisServer() {
 	var err error
@@ -84,13 +96,13 @@ func startLocalRedisServer() {
 
 	localRedisServer.Select(0)
 
-	testValueContent, err := json.Marshal(testValue)
+	testValueContent, err := json.Marshal(testutil.TestValue)
 	if err != nil {
 		log.Fatalf("Cannot set initial testKeyForGet on local redis: %s", err)
 	}
 
 	// set initial value for testKeyForGet
-	err = localRedisServer.Set(testKeyForGet, string(testValueContent))
+	err = localRedisServer.Set(testutil.TestKeyForGet, string(testValueContent))
 	if err != nil {
 		log.Fatalf("Cannot set initial testKeyForGet on local redis: %s", err)
 	}
