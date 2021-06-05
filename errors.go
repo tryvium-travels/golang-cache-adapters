@@ -17,6 +17,9 @@ package cacheadapters
 import "fmt"
 
 var (
+	// ErrNilSubAdapter will come out if you try to pass a nil sub-adapter when creating
+	// a new MultiCacheAdapter.
+	ErrNilSubAdapter = fmt.Errorf("cannot pass a nil sub-adapter to NewMultiCacheAdapter")
 	//ErrInvalidConnection will come out if you try to use an invalid connection in a session.
 	ErrInvalidConnection = fmt.Errorf("cannot use an invalid connection")
 	// ErrNotFound will come out if a key is not found in the cache.
