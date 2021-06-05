@@ -31,7 +31,7 @@ var (
 	// ErrInTransactionMarshalValue will come out if a nil object value is parsed
 	// from the cache transaction and at the same index of reference objects you
 	// are expecting to put a value.
-	ErrInTransactionMarshalValue = fmt.Errorf("in InTransaction you must provide an array that matches nil return values from cache into your reference objects array")
+	ErrInTransactionMarshalValue = fmt.Errorf("in InTransaction you must provide an array that matches return values from cache into your reference objects array")
 	// ErrNoNestedTransactions will come out if you try to call session.Intransaction inside
 	// a transactionFunc.
 	ErrNoNestedTransactions = fmt.Errorf("you cannot nest multiple InTransaction calls")

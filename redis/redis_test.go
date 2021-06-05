@@ -17,7 +17,6 @@ package rediscacheadapters_test
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -25,7 +24,6 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gomodule/redigo/redis"
 	"github.com/stretchr/testify/mock"
-	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 )
 
 var (
@@ -113,34 +111,6 @@ func startLocalRedisServer() {
 // local, in-memory Redis instance.
 func stopLocalRedisServer() {
 	localRedisServer.Close()
-}
-
-func inTransactionFunc(session cacheadapters.CacheSessionAdapter) error {
-	err := session.Get(testKeyForGet, nil)
-	if err != nil {
-		return err
-	}
-
-	testValue2 := testStruct{
-		Value: "2",
-	}
-
-	err = session.Set(testKeyForSet, testValue2, nil)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func nestedInTransactionFunc(session cacheadapters.CacheSessionAdapter) error {
-	return session.InTransaction(func(session cacheadapters.CacheSessionAdapter) error {
-		return nil
-	}, nil)
-}
-
-func erroringInTransactionFunc(session cacheadapters.CacheSessionAdapter) error {
-	return fmt.Errorf("THIS IS AN ERROR TO PROVE ERRORING FUNCTIONS ALSO WORK IN TESTS")
 }
 
 // TestMain adds Global test setups and teardowns.

@@ -246,6 +246,70 @@ func TestSessionSetTTLWithInvalidConnection(t *testing.T) {
 	require.Error(t, err, "Should error since the conn is invalid")
 }
 
+func TestSessionInTransactionGetDelOK(t *testing.T) {
+	conn := initConnection(t)
+	defer conn.Close()
+
+	session, _ := rediscacheadapters.NewSession(conn, time.Second)
+
+	refs := []interface{}{
+		&testStruct{},
+		new(int64),
+	}
+
+	err := session.InTransaction(getDelInTransactionFunc, refs)
+	require.NoError(t, err, "Should not error with a valid transaction")
+
+	// expects 0 because at the time of the Send DEL, it will not be executed
+	// More info at: https://redis.io/topics/transactions
+	expectedInt64 := int64(0)
+	expectedValues := []interface{}{
+		&testValue,
+		&expectedInt64,
+	}
+
+	require.EqualValues(t, expectedValues, refs, "Should be equal to the result")
+}
+
+func TestSessionInTransactionGetFloat64OK(t *testing.T) {
+	conn := &erroringMockedDOEXECRedisConn{
+		erroringMockedSENDMULTIRedisConn: &erroringMockedSENDMULTIRedisConn{
+			erroringMockedRedisConn: &erroringMockedRedisConn{
+				Conn: initConnection(t),
+			},
+		},
+	}
+	defer conn.Close()
+
+	session, _ := rediscacheadapters.NewSession(conn, time.Second)
+	conn.On("Send", "MULTI").Return(nil)
+	conn.On("Send", "SETEX", testKeyForSet, float64(1), []byte(`2.5`)).Return(nil)
+	conn.On("Send", "GET", testKeyForSet).Return(nil)
+	conn.On("Send", "EXPIRE", testKeyForSet, float64(1)).Return(nil)
+	conn.On("Do", "EXEC").Return([]interface{}{nil, float64(2.5), int64(0)}, nil)
+
+	refs := []interface{}{
+		nil,
+		new(float64),
+		new(int64),
+	}
+
+	err := session.InTransaction(setGetExFloat64InTransactionFunc, refs)
+	require.NoError(t, err, "Should not error with a valid transaction")
+
+	// expects 0 because at the time of the exec the GET will fail
+	// with the key present, because no WATCH command has been made in place.
+	// More info at: https://redis.io/topics/transactions
+	expectedFloat64 := 2.5
+	expectedValues := []interface{}{
+		nil,
+		&expectedFloat64,
+		new(int64),
+	}
+
+	require.Equal(t, expectedValues, refs, "Should be equal to the result")
+}
+
 func TestSessionInTransactionWithNilFunc(t *testing.T) {
 	conn := initConnection(t)
 	defer conn.Close()

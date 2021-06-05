@@ -243,6 +243,49 @@ func TestInTransactionOK(t *testing.T) {
 	require.Equal(t, expectedValues, refs, "Should be equal to the result")
 }
 
+func TestInTransactionGetDelOK(t *testing.T) {
+	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
+
+	refs := []interface{}{
+		&testStruct{},
+		new(int64),
+	}
+
+	err := adapter.InTransaction(getDelInTransactionFunc, refs)
+	require.NoError(t, err, "Should not error with a valid transaction")
+
+	expectedInt64 := int64(1)
+	expectedValues := []interface{}{
+		&testValue,
+		&expectedInt64,
+	}
+
+	require.Equal(t, expectedValues, refs, "Should be equal to the result")
+}
+
+func TestInTransactionGetFloat64OK(t *testing.T) {
+	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
+
+	refs := []interface{}{
+		nil,
+		new(float64),
+		new(int64),
+	}
+
+	err := adapter.InTransaction(setGetExFloat64InTransactionFunc, refs)
+	require.NoError(t, err, "Should not error with a valid transaction")
+
+	expectedInt64 := int64(1)
+	expectedFloat64 := 2.5
+	expectedValues := []interface{}{
+		nil,
+		&expectedFloat64,
+		&expectedInt64,
+	}
+
+	require.Equal(t, expectedValues, refs, "Should be equal to the result")
+}
+
 func TestInTransactionWithNilObjectReference(t *testing.T) {
 	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
 

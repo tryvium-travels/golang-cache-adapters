@@ -23,6 +23,8 @@ import (
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 )
 
+type RedisCommandFunc func(commandName string, args ...interface{})
+
 // RedisSessionAdapter is the CacheSessionAdapter implementation
 // for Redis.
 type RedisSessionAdapter struct {
@@ -111,18 +113,24 @@ func (rsa *RedisSessionAdapter) SetTTL(key string, newTTL time.Duration) error {
 	var err error
 
 	if newTTL > cacheadapters.TTLExpired {
-		_, err = rsa.conn.Do("EXPIRE", key, newTTL.Seconds())
+		if rsa.inTransaction {
+			return rsa.conn.Send("EXPIRE", key, newTTL.Seconds())
+		} else {
+			_, err = rsa.conn.Do("EXPIRE", key, newTTL.Seconds())
+			return err
+		}
 	} else {
 		return rsa.Delete(key)
 	}
-
-	return err
 }
 
 // Delete deletes a key from the cache.
 func (rsa *RedisSessionAdapter) Delete(key string) error {
-	_, err := rsa.conn.Do("DEL", key)
+	if rsa.inTransaction {
+		return rsa.conn.Send("DEL", key)
+	}
 
+	_, err := rsa.conn.Do("DEL", key)
 	return err
 }
 
@@ -178,11 +186,11 @@ func (rsa *RedisSessionAdapter) InTransaction(inTransactionFunc cacheadapters.In
 			return cacheadapters.ErrInTransactionMarshalValue
 		}
 
-		result, ok := transactionResult.([]byte)
-		if !ok {
-			resultString, ok := transactionResult.(string)
-			isOkString := resultString == "OK"
-			if ok {
+		resultAsBytes, isBytes := transactionResult.([]byte)
+		if !isBytes {
+			resultAsString, isString := transactionResult.(string)
+			if isString {
+				isOkString := resultAsString == "OK"
 				if isOkString {
 					if objectRefs[i] == nil {
 						continue
@@ -190,14 +198,17 @@ func (rsa *RedisSessionAdapter) InTransaction(inTransactionFunc cacheadapters.In
 						return cacheadapters.ErrInTransactionMarshalValue
 					}
 				} else {
-					result = []byte(resultString)
+					resultAsBytes = []byte(resultAsString)
 				}
 			} else {
-				return cacheadapters.ErrInTransactionMarshalValue
+				resultAsBytes, err = json.Marshal(transactionResult)
+				if err != nil {
+					return cacheadapters.ErrInTransactionMarshalValue
+				}
 			}
 		}
 
-		err := json.Unmarshal([]byte(result), objectRefs[i])
+		err := json.Unmarshal(resultAsBytes, objectRefs[i])
 		if err != nil {
 			return err
 		}
