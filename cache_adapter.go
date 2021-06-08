@@ -46,7 +46,8 @@ type cacheOperator interface {
 	// it into the object reference passed as parameter.
 	Get(key string, objectRef interface{}) error
 
-	// Set sets a value represented by the object parameter into the cache, with the specified key.
+	// Set sets a value represented by the object parameter into the cache,
+	// with the specified key.
 	Set(key string, object interface{}, TTL *time.Duration) error
 
 	// SetTTL marks the specified key new expiration, deletes it via using
