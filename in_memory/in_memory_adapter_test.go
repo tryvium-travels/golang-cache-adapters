@@ -15,20 +15,14 @@
 package inmemorycacheadapters_test
 
 import (
-	"os"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 	inmemorycacheadapters "github.com/tryvium-travels/golang-cache-adapters/in_memory"
 	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
-
-// TestMain adds Global test setups and teardowns.
-func TestMain(m *testing.M) {
-	code := m.Run()
-
-	os.Exit(code)
-}
 
 func TestNewInMemoryCacheAdapterOK(t *testing.T) {
 	_, err := inmemorycacheadapters.New(testutil.DummyTTL)
@@ -74,4 +68,125 @@ func TestSetWithNonUnmarshalableReference(t *testing.T) {
 
 	err := adapter.Get(testutil.TestKeyForSet, &actual)
 	require.Error(t, err, "Should error on non unmarshalable get")
+}
+
+// ----------------------------------------
+
+func TestInTransaction_GetFailBeforeSet(t *testing.T) {
+	adapter, _ := inmemorycacheadapters.New(testutil.DummyTTL)
+	data := []interface{}{
+		testutil.TestStruct{Value: "test1"},
+		testutil.TestStruct{Value: "test2"},
+	}
+	err := adapter.InTransaction(testutil.InTransactionFunc, data)
+	require.Error(t, err, "Should error on inner Get since the cache is empty")
+}
+
+func TestInTransaction_GetSetOk(t *testing.T) {
+	adapter, _ := inmemorycacheadapters.New(testutil.DummyTTL)
+	data := []interface{}{
+		testutil.TestStruct{Value: "test1"},
+		testutil.TestStruct{Value: "test2"},
+	}
+	objToGet := testutil.TestStruct{Value: "3-get"}
+	err := adapter.Set(testutil.TestKeyForGet, objToGet, nil)
+	require.NoError(t, err, "Should not give error on setting the value")
+
+	err = adapter.InTransaction(
+		func(session cacheadapters.CacheSessionAdapter) error {
+			getHolder := &testutil.TestStruct{Value: "hold me"}
+			err2 := session.Get(testutil.TestKeyForGet, getHolder)
+			if err2 != nil {
+				return err2
+			}
+
+			testValue2 := testutil.TestStruct{
+				Value: "222",
+			}
+
+			err2 = session.Set(testutil.TestKeyForSet, testValue2, nil)
+			if err2 != nil {
+				return err2
+			}
+
+			return nil
+		}, data)
+
+	require.NoError(t, err, "Should not give errors on InTransaction since Get inside InTransaction should succeed")
+
+	if data[0] == nil {
+		errorText := "Processed data at index 0 is nil"
+		require.NoError(t, fmt.Errorf(errorText), errorText)
+	}
+	if data[1] == nil {
+		errorText := "Processed data at index 1 is nil"
+		require.NoError(t, fmt.Errorf(errorText), errorText)
+	}
+
+	fmt.Printf("data[0]: %+v\n", data[0])
+	fmt.Printf("data[0].([]interface{})[0]: %+v\n", data[0].([]interface{})[0])
+	fmt.Printf("all data: %+v\n", data)
+	require.Equal(t, "3-get",
+		((data[0].([]interface{})[0]).(*testutil.TestStruct)).Value,
+		"Processed data at index 1 should have the value \"3-get\"",
+	)
+	require.Equal(t, "222",
+		((data[1].([]interface{})[0]).(*testutil.TestStruct)).Value,
+		"Processed data at index 1 should have the value \"222\"",
+	)
+}
+
+func TestInTransaction_GetSetOkTrimming(t *testing.T) {
+	adapter, _ := inmemorycacheadapters.New(testutil.DummyTTL)
+	data := []interface{}{
+		testutil.TestStruct{Value: "test1"},
+		testutil.TestStruct{Value: "test2"},
+		testutil.TestStruct{Value: "will be trimmed"},
+	}
+	err := adapter.Set(testutil.TestKeyForGet, testutil.TestStruct{Value: "3"}, nil)
+	require.NoError(t, err, "Should not give error on setting the value")
+
+	err = adapter.InTransaction(
+		func(session cacheadapters.CacheSessionAdapter) error {
+			getHolder := &testutil.TestStruct{Value: "hold me"}
+			err2 := session.Get(testutil.TestKeyForGet, getHolder)
+			if err2 != nil {
+				return err2
+			}
+
+			testValue2 := testutil.TestStruct{
+				Value: "222",
+			}
+
+			err2 = session.Set(testutil.TestKeyForSet, testValue2, nil)
+			if err2 != nil {
+				return err2
+			}
+
+			return nil
+		}, data)
+
+	require.NoError(t, err, "Should not give errors on InTransaction since Get inside InTransaction should succeed")
+
+	if data[0] == nil {
+		errorText := "Processed data at index 0 is nil"
+		require.NoError(t, fmt.Errorf(errorText), errorText)
+	}
+	if data[1] == nil {
+		errorText := "Processed data at index 1 is nil"
+		require.NoError(t, fmt.Errorf(errorText), errorText)
+	}
+	if data[2] != nil {
+		errorText := "Exceeding processed data should be nil"
+		require.NoError(t, fmt.Errorf(errorText), errorText)
+	}
+
+	require.Equal(t, "3",
+		((data[0].([]interface{})[0]).(*testutil.TestStruct)).Value,
+		"Processed data at index 1 should have the value \"3\"",
+	)
+	require.Equal(t, "222",
+		((data[1].([]interface{})[0]).(*testutil.TestStruct)).Value,
+		"Processed data at index 1 should have the value \"222\"",
+	)
 }
