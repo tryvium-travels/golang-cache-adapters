@@ -103,16 +103,3 @@ func (ra *RedisAdapter) Delete(key string) error {
 
 	return rsa.Delete(key)
 }
-
-// InTransaction allows to execute multiple Cache Sets and Gets in a Transaction, then tries to
-// Unmarshal the array of results into the specified array of object references.
-func (ra *RedisAdapter) InTransaction(inTransactionFunc cacheadapters.InTransactionFunc, objectRefs []interface{}) error {
-	rsa, err := ra.OpenSession()
-	if err != nil {
-		return err
-	}
-
-	defer rsa.Close()
-
-	return rsa.InTransaction(inTransactionFunc, objectRefs)
-}

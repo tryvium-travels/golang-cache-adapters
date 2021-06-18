@@ -31,8 +31,6 @@ or use go modules, it should take care of this automagically.
 # Usage
 
 The `CacheAdapter` interface offers 2 main ways to access a cache: `Get` and `Set` methods.
-You can also use `InTransaction` function when you need to perform multiple operations in
-the same session. 
 
 You can use `Delete` and `SetTTL` functions as well. For more info, check the docs.
 
@@ -91,29 +89,6 @@ func main() {
 		// remember to check for errors
 		log.Fatalf("adapter.Get error: %s", err)
 	}
-
-	results := []interface{}{
-		&exampleValue,
-		nil,
-	}
-
-	// use InTransaction when you need to perform multiple operations
-	// in the same session.
-	err = adapter.InTransaction(func(session cacheadapters.CacheSessionAdapter) error {
-		err = adapter.Get(exampleKey, nil)
-		if err != nil {
-			return err
-		}
-
-		exampleValue.Value = "2"
-
-		err = session.Set(exampleKey, exampleValue, nil)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}, results)
 }
 ```
 
