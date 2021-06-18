@@ -55,8 +55,4 @@ type cacheOperator interface {
 
 	// Delete deletes a key from the cache.
 	Delete(key string) error
-
-	// InTransaction allows to execute multiple Cache Sets and Gets in a Transaction, then tries to
-	// Unmarshal the array of results into the specified array of object references.
-	InTransaction(inTransactionFunc InTransactionFunc, objectRefs []interface{}) error
 }

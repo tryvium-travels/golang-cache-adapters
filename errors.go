@@ -24,17 +24,6 @@ var (
 	// ErrGetRequiresObjectReference will come out if a nil object
 	// reference is passed in a Get operation.
 	ErrGetRequiresObjectReference = fmt.Errorf("in Get operations it is mandatory to provide a non-nil object reference to store the result in, nil found")
-	// ErrInTransactionObjectReferencesLengthMismatch will come out
-	// if there is a mismatch in number of commands in the transaction
-	// and the length of the object references array.
-	ErrInTransactionObjectReferencesLengthMismatch = fmt.Errorf("in InTransactions you must provide an array of reference objects with length equal to the number of commands you call in the transaction")
-	// ErrInTransactionMarshalValue will come out if a nil object value is parsed
-	// from the cache transaction and at the same index of reference objects you
-	// are expecting to put a value.
-	ErrInTransactionMarshalValue = fmt.Errorf("in InTransaction you must provide an array that matches return values from cache into your reference objects array")
-	// ErrNoNestedTransactions will come out if you try to call session.Intransaction inside
-	// a transactionFunc.
-	ErrNoNestedTransactions = fmt.Errorf("you cannot nest multiple InTransaction calls")
 	// ErrInvalidTTL will come out if you try to set a zero-or-negative
 	// TTL in a Set operation.
 	ErrInvalidTTL = fmt.Errorf("cannot provide a negative TTL to Set operations")

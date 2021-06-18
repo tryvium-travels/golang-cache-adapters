@@ -28,10 +28,9 @@ type RedisCommandFunc func(commandName string, args ...interface{})
 // RedisSessionAdapter is the CacheSessionAdapter implementation
 // for Redis.
 type RedisSessionAdapter struct {
-	conn          redis.Conn    // The redis connection used to connect.
-	defaultTTL    time.Duration // The defaultTTL of the Set operations.
-	inTransaction bool          // True if inside a transaction.
-	mutex         *sync.Mutex   // mutex to handle transactions.
+	conn       redis.Conn    // The redis connection used to connect.
+	defaultTTL time.Duration // The defaultTTL of the Set operations.
+	mutex      *sync.Mutex   // mutex to handle transactions.
 }
 
 // NewSession creates a new Redis Cache Session adapter from
@@ -46,19 +45,15 @@ func NewSession(conn redis.Conn, defaultTTL time.Duration) (cacheadapters.CacheS
 	}
 
 	return &RedisSessionAdapter{
-		conn:          conn,
-		defaultTTL:    defaultTTL,
-		inTransaction: false,
-		mutex:         &sync.Mutex{},
+		conn:       conn,
+		defaultTTL: defaultTTL,
+		mutex:      &sync.Mutex{},
 	}, nil
 }
 
 // Get obtains a value from the cache using a key, then tries to unmarshal
 // it into the object reference passed as parameter.
 func (rsa *RedisSessionAdapter) Get(key string, objectRef interface{}) error {
-	if rsa.inTransaction {
-		return rsa.conn.Send("GET", key)
-	}
 
 	resultContent, err := redis.Bytes(rsa.conn.Do("GET", key))
 	if err == redis.ErrNil {
@@ -95,10 +90,6 @@ func (rsa *RedisSessionAdapter) Set(key string, object interface{}, TTL *time.Du
 		return err
 	}
 
-	if rsa.inTransaction {
-		return rsa.conn.Send("SETEX", key, (*TTL).Seconds(), objectContent)
-	}
-
 	_, err = rsa.conn.Do("SETEX", key, (*TTL).Seconds(), objectContent)
 	if err != nil {
 		return err
@@ -113,12 +104,8 @@ func (rsa *RedisSessionAdapter) SetTTL(key string, newTTL time.Duration) error {
 	var err error
 
 	if newTTL > cacheadapters.TTLExpired {
-		if rsa.inTransaction {
-			return rsa.conn.Send("EXPIRE", key, newTTL.Seconds())
-		} else {
-			_, err = rsa.conn.Do("EXPIRE", key, newTTL.Seconds())
-			return err
-		}
+		_, err = rsa.conn.Do("EXPIRE", key, newTTL.Seconds())
+		return err
 	} else {
 		return rsa.Delete(key)
 	}
@@ -126,95 +113,8 @@ func (rsa *RedisSessionAdapter) SetTTL(key string, newTTL time.Duration) error {
 
 // Delete deletes a key from the cache.
 func (rsa *RedisSessionAdapter) Delete(key string) error {
-	if rsa.inTransaction {
-		return rsa.conn.Send("DEL", key)
-	}
-
 	_, err := rsa.conn.Do("DEL", key)
 	return err
-}
-
-// InTransaction allows to execute multiple Cache Sets and Gets in a Transaction, then tries to
-// Unmarshal the array of results into the specified array of object references.
-func (rsa *RedisSessionAdapter) InTransaction(inTransactionFunc cacheadapters.InTransactionFunc, objectRefs []interface{}) error {
-	if rsa.inTransaction {
-		return cacheadapters.ErrNoNestedTransactions
-	}
-
-	rsa.mutex.Lock()
-	rsa.inTransaction = true
-	defer func() {
-		rsa.mutex.Lock()
-		rsa.inTransaction = false
-		rsa.mutex.Unlock()
-	}()
-	rsa.mutex.Unlock()
-
-	if inTransactionFunc == nil {
-		return nil
-	}
-
-	err := rsa.conn.Send("MULTI")
-	if err != nil {
-		return err
-	}
-
-	err = inTransactionFunc(rsa)
-	if err != nil {
-		rsa.conn.Do("DISCARD")
-		return err
-	}
-
-	transactionResults, err := redis.Values(rsa.conn.Do("EXEC"))
-	if err != nil {
-		return err
-	}
-
-	if objectRefs == nil {
-		return cacheadapters.ErrGetRequiresObjectReference
-	}
-
-	if len(objectRefs) != len(transactionResults) {
-		return cacheadapters.ErrInTransactionObjectReferencesLengthMismatch
-	}
-
-	for i, transactionResult := range transactionResults {
-		if transactionResult == nil {
-			if objectRefs[i] == nil {
-				continue
-			}
-			return cacheadapters.ErrInTransactionMarshalValue
-		}
-
-		resultAsBytes, isBytes := transactionResult.([]byte)
-		if !isBytes {
-			resultAsString, isString := transactionResult.(string)
-			if isString {
-				isOkString := resultAsString == "OK"
-				if isOkString {
-					if objectRefs[i] == nil {
-						continue
-					} else {
-						return cacheadapters.ErrInTransactionMarshalValue
-					}
-				} else {
-					resultAsBytes = []byte(resultAsString)
-				}
-			} else {
-				resultAsBytes, err = json.Marshal(transactionResult)
-				if err != nil {
-					return cacheadapters.ErrInTransactionMarshalValue
-				}
-			}
-		}
-
-		err := json.Unmarshal(resultAsBytes, objectRefs[i])
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // Close closes the Cache Session.
