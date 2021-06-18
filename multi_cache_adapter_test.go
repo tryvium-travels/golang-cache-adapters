@@ -44,6 +44,18 @@ func (mca *mockCacheAdapter) Set(key string, object interface{}, newTTL *time.Du
 	return args.Error(0)
 }
 
+func (mca *mockCacheAdapter) SetTTL(key string, newTTL time.Duration) error {
+	args := mca.Called(key, newTTL)
+
+	return args.Error(0)
+}
+
+func (mca *mockCacheAdapter) Delete(key string) error {
+	args := mca.Called(key)
+
+	return args.Error(0)
+}
+
 func newMockCacheAdapter() *mockCacheAdapter {
 	return &mockCacheAdapter{
 		CacheAdapter: nil,
@@ -223,9 +235,11 @@ func (suite *MultiCacheAdapterTestSuite) TestGetWithNonUnmarshalableReference() 
 	actual := complex128(1)
 
 	var dummyRawMessage json.RawMessage
-	suite.firstDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
-	suite.secondDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
-	suite.thirdDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
+
+	// forcing to return nil simulates a wrong unmarshal handling, corrected by the multi adapter.
+	suite.firstDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
+	suite.secondDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
+	suite.thirdDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
 
 	err := adapter.Get(testutil.TestKeyForGet, &actual)
 	suite.Error(err, "Should error on Get with a non unmarshalable reference")
@@ -298,5 +312,105 @@ func (suite *MultiCacheAdapterTestSuite) TestSetWithPartialErrorAndWarnings() {
 	suite.thirdDummyAdapter.On("Set", testutil.TestKeyForSet, actual, &invalidTTL).Once().Return(nil)
 
 	err := adapter.Set(testutil.TestKeyForSet, actual, &invalidTTL)
+	suite.ErrorIs(err, cacheadapters.ErrMultiCacheWarning, "Should error with warning on non marshalable value in Set")
+}
+
+func (suite *MultiCacheAdapterTestSuite) TestSetTTLOK() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+
+	fakeTTL := time.Second
+
+	suite.firstDummyAdapter.On("SetTTL", testutil.TestKeyForSet, fakeTTL).Once().Return(nil)
+	suite.secondDummyAdapter.On("SetTTL", testutil.TestKeyForSet, fakeTTL).Once().Return(nil)
+	suite.thirdDummyAdapter.On("SetTTL", testutil.TestKeyForSet, fakeTTL).Once().Return(nil)
+
+	err := adapter.SetTTL(testutil.TestKeyForSet, fakeTTL)
+	suite.NoError(err, "Should not error on OK Set")
+}
+
+func (suite *MultiCacheAdapterTestSuite) TestSetTTLWithInvalidTTL() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+
+	invalidTTL := -time.Second
+
+	suite.firstDummyAdapter.On("SetTTL", testutil.TestKeyForSet, invalidTTL).Once().Return(nil)
+	suite.secondDummyAdapter.On("SetTTL", testutil.TestKeyForSet, invalidTTL).Once().Return(nil)
+	suite.thirdDummyAdapter.On("SetTTL", testutil.TestKeyForSet, invalidTTL).Once().Return(nil)
+
+	err := adapter.SetTTL(testutil.TestKeyForSet, invalidTTL)
+	suite.NoError(err, "Should error on Set with invalid TTL")
+}
+
+func (suite *MultiCacheAdapterTestSuite) TestSetTTLWithError() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter.DisableWarnings()
+
+	invalidTTL := -time.Second
+
+	suite.firstDummyAdapter.On("SetTTL", testutil.TestKeyForSet, invalidTTL).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.secondDummyAdapter.On("SetTTL", testutil.TestKeyForSet, invalidTTL).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.thirdDummyAdapter.On("SetTTL", testutil.TestKeyForSet, invalidTTL).Once().Return(testutil.ErrTestingFailureCheck)
+
+	err := adapter.SetTTL(testutil.TestKeyForSet, invalidTTL)
+	suite.Error(err, "Should error on non total fail value in Set")
+}
+
+func (suite *MultiCacheAdapterTestSuite) TestSetTTLWithPartialErrorAndWarnings() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter.EnableWarnings()
+
+	invalidTTL := -time.Second
+
+	suite.firstDummyAdapter.On("SetTTL", testutil.TestKeyForSet, invalidTTL).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.secondDummyAdapter.On("SetTTL", testutil.TestKeyForSet, invalidTTL).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.thirdDummyAdapter.On("SetTTL", testutil.TestKeyForSet, invalidTTL).Once().Return(nil)
+
+	err := adapter.SetTTL(testutil.TestKeyForSet, invalidTTL)
+	suite.ErrorIs(err, cacheadapters.ErrMultiCacheWarning, "Should error with warning on non marshalable value in Set")
+}
+
+func (suite *MultiCacheAdapterTestSuite) TestDeleteOK() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+
+	suite.firstDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(nil)
+	suite.secondDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(nil)
+	suite.thirdDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(nil)
+
+	err := adapter.Delete(testutil.TestKeyForDelete)
+	suite.NoError(err, "Should not error on OK Set")
+}
+
+func (suite *MultiCacheAdapterTestSuite) TestDeleteWithInvalidTTL() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+
+	suite.firstDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(nil)
+	suite.secondDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(nil)
+	suite.thirdDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(nil)
+
+	err := adapter.Delete(testutil.TestKeyForDelete)
+	suite.NoError(err, "Should error on Set with invalid TTL")
+}
+
+func (suite *MultiCacheAdapterTestSuite) TestDeleteWithError() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter.DisableWarnings()
+
+	suite.firstDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.secondDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.thirdDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(testutil.ErrTestingFailureCheck)
+
+	err := adapter.Delete(testutil.TestKeyForDelete)
+	suite.Error(err, "Should error on non total fail value in Set")
+}
+
+func (suite *MultiCacheAdapterTestSuite) TestDeleteWithPartialErrorAndWarnings() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter.EnableWarnings()
+
+	suite.firstDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.secondDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.thirdDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(nil)
+
+	err := adapter.Delete(testutil.TestKeyForDelete)
 	suite.ErrorIs(err, cacheadapters.ErrMultiCacheWarning, "Should error with warning on non marshalable value in Set")
 }
