@@ -15,12 +15,12 @@
 package cacheadapters_test
 
 import (
-	"os"
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
@@ -30,211 +30,273 @@ type mockCacheAdapter struct {
 	cacheadapters.CacheAdapter
 }
 
+func (mca *mockCacheAdapter) Get(key string, objectRef interface{}) error {
+	args := mca.Called(key, objectRef)
+
+	json.Unmarshal([]byte(testutil.TestValueJSON), &objectRef)
+
+	return args.Error(0)
+}
+
+func (mca *mockCacheAdapter) Set(key string, object interface{}, newTTL *time.Duration) error {
+	args := mca.Called(key, object, newTTL)
+
+	return args.Error(0)
+}
+
 func newMockCacheAdapter() *mockCacheAdapter {
 	return &mockCacheAdapter{
 		CacheAdapter: nil,
 	}
 }
 
-var (
+func TestMultiCacheAdapterSuite(t *testing.T) {
+	suite.Run(t, new(MultiCacheAdapterTestSuite))
+}
+
+// MultiCacheAdapterTestSuite contains all methods to run tests in a
+// isolated suite.
+type MultiCacheAdapterTestSuite struct {
+	suite.Suite
 	firstDummyAdapter  *mockCacheAdapter
 	secondDummyAdapter *mockCacheAdapter
 	thirdDummyAdapter  *mockCacheAdapter
-)
-
-// TestMain adds Global test setups and teardowns.
-func TestMain(m *testing.M) {
-	firstDummyAdapter = newMockCacheAdapter()
-	secondDummyAdapter = newMockCacheAdapter()
-	thirdDummyAdapter = newMockCacheAdapter()
-
-	code := m.Run()
-
-	os.Exit(code)
 }
 
-func TestNewMultiCacheAdapterOK(t *testing.T) {
-	_, err := cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, thirdDummyAdapter)
-	require.NoError(t, err, "Should not give error on valid New")
+func (suite *MultiCacheAdapterTestSuite) TestNewMultiCacheAdapterOK() {
+	_, err := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	suite.NoError(err, "Should not give error on valid New")
 }
 
-func TestNewWithNilAdapter(t *testing.T) {
-	_, err := cacheadapters.NewMultiCacheAdapter(nil, secondDummyAdapter, thirdDummyAdapter)
-	require.Equal(t, cacheadapters.ErrNilSubAdapter, err, "Should give error on nil first adapter")
+// Make sure that VariableThatShouldStartAtFive is set to five
+// before each test
+func (suite *MultiCacheAdapterTestSuite) SetupTest() {
+	suite.firstDummyAdapter = newMockCacheAdapter()
+	suite.secondDummyAdapter = newMockCacheAdapter()
+	suite.thirdDummyAdapter = newMockCacheAdapter()
+}
 
-	_, err = cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, nil, thirdDummyAdapter)
-	require.Equal(t, cacheadapters.ErrNilSubAdapter, err, "Should give error on nil second adapter")
+func (suite *MultiCacheAdapterTestSuite) TestNewWithNilAdapter() {
+	_, err := cacheadapters.NewMultiCacheAdapter(nil, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	suite.Equal(cacheadapters.ErrNilSubAdapter, err, "Should give error on nil first adapter")
 
-	_, err = cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, nil)
-	require.Equal(t, cacheadapters.ErrNilSubAdapter, err, "Should give error on nil third adapter")
+	_, err = cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, nil, suite.thirdDummyAdapter)
+	suite.Equal(cacheadapters.ErrNilSubAdapter, err, "Should give error on nil second adapter")
 
-	_, err = cacheadapters.NewMultiCacheAdapter(nil, nil, thirdDummyAdapter)
-	require.Equal(t, cacheadapters.ErrNilSubAdapter, err, "Should give error on nil first and second adapter")
+	_, err = cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, nil)
+	suite.Equal(cacheadapters.ErrNilSubAdapter, err, "Should give error on nil third adapter")
+
+	_, err = cacheadapters.NewMultiCacheAdapter(nil, nil, suite.thirdDummyAdapter)
+	suite.Equal(cacheadapters.ErrNilSubAdapter, err, "Should give error on nil first and second adapter")
 
 	_, err = cacheadapters.NewMultiCacheAdapter(nil, nil, nil)
-	require.Equal(t, cacheadapters.ErrNilSubAdapter, err, "Should give error on all nil adapter")
+	suite.Equal(cacheadapters.ErrNilSubAdapter, err, "Should give error on all nil adapter")
 }
 
-func TestGetOK(t *testing.T) {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, thirdDummyAdapter)
+func (suite *MultiCacheAdapterTestSuite) TestGetOK() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	var actual testutil.TestStruct
 
-	firstDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(nil)
-	secondDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(nil)
-	thirdDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(nil)
+	var dummyRawMessage json.RawMessage
+	suite.firstDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
+	suite.secondDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
+	suite.thirdDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
 
 	err := adapter.Get(testutil.TestKeyForGet, &actual)
-	require.NoError(t, err, "Should not error on valid Get")
+	suite.NoError(err, "Should not error on valid Get")
 
-	require.Equal(t, testutil.TestValue.Value, actual.Value, "Should be equal to the provided test value")
+	suite.Equal(testutil.TestValue.Value, actual.Value, "Should be equal to the provided test value")
 }
 
-func TestGetUsingPriorityOnPartialFail1(t *testing.T) {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, thirdDummyAdapter)
+func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFail1() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	var actual testutil.TestStruct
 
-	firstDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(testutil.ErrTestingFailureCheck)
-	secondDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(nil)
-	thirdDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(nil)
+	var dummyRawMessage json.RawMessage
+	suite.firstDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.secondDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
+	suite.thirdDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
 
 	err := adapter.Get(testutil.TestKeyForGet, &actual)
-	require.NoError(t, err, "Should not error on valid Get")
+	suite.NoError(err, "Should not error on valid Get")
 
-	require.Equal(t, testutil.TestValue.Value, actual.Value, "Should be equal to the provided test value")
+	suite.Equal(testutil.TestValue.Value, actual.Value, "Should be equal to the provided test value")
 }
 
-func TestGetUsingPriorityOnPartialFail2(t *testing.T) {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, thirdDummyAdapter)
+func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFail2() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	var actual testutil.TestStruct
 
-	firstDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(nil)
-	secondDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(testutil.ErrTestingFailureCheck)
-	thirdDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(nil)
+	var dummyRawMessage json.RawMessage
+	suite.firstDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
+	suite.secondDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.thirdDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
 
 	err := adapter.Get(testutil.TestKeyForGet, &actual)
-	require.NoError(t, err, "Should not error on valid Get")
+	suite.NoError(err, "Should not error on valid Get")
 
-	require.Equal(t, testutil.TestValue.Value, actual.Value, "Should be equal to the provided test value")
+	suite.Equal(testutil.TestValue.Value, actual.Value, "Should be equal to the provided test value")
 }
 
-func TestGetUsingPriorityOnPartialFail3(t *testing.T) {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, thirdDummyAdapter)
+func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFail3() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	var actual testutil.TestStruct
 
-	firstDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(nil)
-	secondDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(nil)
-	thirdDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(testutil.ErrTestingFailureCheck)
+	var dummyRawMessage json.RawMessage
+	suite.firstDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
+	suite.secondDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
+	suite.thirdDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
 
 	err := adapter.Get(testutil.TestKeyForGet, &actual)
-	require.NoError(t, err, "Should not error on valid Get")
+	suite.NoError(err, "Should not error on valid Get")
 
-	require.Equal(t, testutil.TestValue.Value, actual.Value, "Should be equal to the provided test value")
+	suite.Equal(testutil.TestValue.Value, actual.Value, "Should be equal to the provided test value")
 }
 
-func TestGetUsingPriorityOnPartialFailMulti(t *testing.T) {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, thirdDummyAdapter)
+func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFailMulti() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	var actual testutil.TestStruct
 
-	firstDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(testutil.ErrTestingFailureCheck)
-	secondDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(nil)
-	thirdDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(testutil.ErrTestingFailureCheck)
+	var dummyRawMessage json.RawMessage
+	suite.firstDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.secondDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
+	suite.thirdDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
 
 	err := adapter.Get(testutil.TestKeyForGet, &actual)
-	require.NoError(t, err, "Should not error on valid Get")
+	suite.NoError(err, "Should not error on valid Get")
 
-	require.Equal(t, testutil.TestValue.Value, actual.Value, "Should be equal to the provided test value")
+	suite.Equal(testutil.TestValue.Value, actual.Value, "Should be equal to the provided test value")
 }
 
-func TestGetOnTotalFail(t *testing.T) {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, thirdDummyAdapter)
+func (suite *MultiCacheAdapterTestSuite) TestGetOnTotalFailAndDisabledWarnings() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter.DisableWarnings()
 
 	var actual testutil.TestStruct
 
-	firstDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(testutil.ErrTestingFailureCheck)
-	secondDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(testutil.ErrTestingFailureCheck)
-	thirdDummyAdapter.On("Get", testutil.TestKeyForGet, testutil.TestStruct{}).Return(testutil.ErrTestingFailureCheck)
+	var dummyRawMessage json.RawMessage
+	suite.firstDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.secondDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.thirdDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
 
 	err := adapter.Get(testutil.TestKeyForGet, &actual)
-	require.Error(t, err, "Should error on total failing Get")
+	suite.Error(err, "Should error on total failing Get")
 }
 
-func TestGetWithNilReference(t *testing.T) {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, thirdDummyAdapter)
+func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFailAndWarnings() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter.EnableWarnings()
 
-	firstDummyAdapter.On("Get", testutil.TestKeyForGet, nil).Return(cacheadapters.ErrGetRequiresObjectReference)
-	secondDummyAdapter.On("Get", testutil.TestKeyForGet, nil).Return(cacheadapters.ErrGetRequiresObjectReference)
-	thirdDummyAdapter.On("Get", testutil.TestKeyForGet, nil).Return(cacheadapters.ErrGetRequiresObjectReference)
+	var actual testutil.TestStruct
+
+	var dummyRawMessage json.RawMessage
+	suite.thirdDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.firstDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.secondDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
+
+	err := adapter.Get(testutil.TestKeyForGet, &actual)
+	suite.ErrorIs(err, cacheadapters.ErrMultiCacheWarning, "Should error on valid Get with a warning")
+
+	suite.Equal(testutil.TestValue.Value, actual.Value, "Should be equal to the provided test value")
+}
+
+func (suite *MultiCacheAdapterTestSuite) TestGetWithNilReference() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+
+	var dummyRawMessage json.RawMessage
+	suite.firstDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(cacheadapters.ErrGetRequiresObjectReference)
+	suite.secondDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(cacheadapters.ErrGetRequiresObjectReference)
+	suite.thirdDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(cacheadapters.ErrGetRequiresObjectReference)
 
 	err := adapter.Get(testutil.TestKeyForGet, nil)
-	require.Error(t, err, "Should error on Get with an empty reference (and not in a transaction)")
+	suite.Error(err, "Should error on Get with an empty reference")
 }
 
-func TestGetWithNonUnmarshalableReference(t *testing.T) {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, thirdDummyAdapter)
+func (suite *MultiCacheAdapterTestSuite) TestGetWithNonUnmarshalableReference() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	actual := complex128(1)
 
-	firstDummyAdapter.On("Get", testutil.TestKeyForGet, nil).Return(testutil.ErrTestingFailureCheck)
-	secondDummyAdapter.On("Get", testutil.TestKeyForGet, nil).Return(testutil.ErrTestingFailureCheck)
-	thirdDummyAdapter.On("Get", testutil.TestKeyForGet, nil).Return(testutil.ErrTestingFailureCheck)
+	var dummyRawMessage json.RawMessage
+	suite.firstDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.secondDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.thirdDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(testutil.ErrTestingFailureCheck)
 
 	err := adapter.Get(testutil.TestKeyForGet, &actual)
-	require.Error(t, err, "Should error on Get with a non unmarshalable reference")
+	suite.Error(err, "Should error on Get with a non unmarshalable reference")
 }
 
-func TestSetOK(t *testing.T) {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, thirdDummyAdapter)
+func (suite *MultiCacheAdapterTestSuite) TestSetOK() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	fakeTTL := time.Second
 
-	firstDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &fakeTTL).Return(nil)
-	secondDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &fakeTTL).Return(nil)
-	thirdDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &fakeTTL).Return(nil)
+	suite.firstDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &fakeTTL).Once().Return(nil)
+	suite.secondDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &fakeTTL).Once().Return(nil)
+	suite.thirdDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &fakeTTL).Once().Return(nil)
 
 	err := adapter.Set(testutil.TestKeyForSet, testutil.TestValue, &fakeTTL)
-	require.NoError(t, err, "Should not error on OK Set")
+	suite.NoError(err, "Should not error on OK Set")
 }
 
-func TestSetOKWithNilTTL(t *testing.T) {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, thirdDummyAdapter)
+func (suite *MultiCacheAdapterTestSuite) TestSetOKWithNilTTL() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
-	firstDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, nil).Return(nil)
-	secondDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, nil).Return(nil)
-	thirdDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, nil).Return(nil)
+	var nilDuration *time.Duration
+	suite.firstDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, nilDuration).Once().Return(nil)
+	suite.secondDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, nilDuration).Once().Return(nil)
+	suite.thirdDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, nilDuration).Once().Return(nil)
 
 	err := adapter.Set(testutil.TestKeyForSet, testutil.TestValue, nil)
-	require.Error(t, err, "Should not error on OK Set with nil value, but should replace it with defaultTTL")
+	suite.NoError(err, "Should not error on OK Set with nil value, but should replace it with defaultTTL")
 }
 
-func TestSetWithInvalidTTL(t *testing.T) {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, thirdDummyAdapter)
+func (suite *MultiCacheAdapterTestSuite) TestSetWithInvalidTTL() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	invalidTTL := -time.Second
 
-	firstDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &invalidTTL).Return(nil)
-	secondDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &invalidTTL).Return(nil)
-	thirdDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &invalidTTL).Return(nil)
+	suite.firstDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &invalidTTL).Once().Return(nil)
+	suite.secondDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &invalidTTL).Once().Return(nil)
+	suite.thirdDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &invalidTTL).Once().Return(nil)
 
 	err := adapter.Set(testutil.TestKeyForSet, testutil.TestValue, &invalidTTL)
-	require.NoError(t, err, "Should error on Set with invalid TTL")
+	suite.NoError(err, "Should error on Set with invalid TTL")
 }
 
-func TestSetWithNonUnmarshalableReference(t *testing.T) {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(firstDummyAdapter, secondDummyAdapter, thirdDummyAdapter)
+func (suite *MultiCacheAdapterTestSuite) TestSetWithError() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter.DisableWarnings()
 
 	var actual complex128
 
 	invalidTTL := -time.Second
 
-	firstDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &invalidTTL).Return(nil)
-	secondDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &invalidTTL).Return(nil)
-	thirdDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, &invalidTTL).Return(nil)
+	suite.firstDummyAdapter.On("Set", testutil.TestKeyForSet, actual, &invalidTTL).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.secondDummyAdapter.On("Set", testutil.TestKeyForSet, actual, &invalidTTL).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.thirdDummyAdapter.On("Set", testutil.TestKeyForSet, actual, &invalidTTL).Once().Return(testutil.ErrTestingFailureCheck)
 
-	err := adapter.Set(testutil.TestKeyForSet, &actual, &invalidTTL)
-	require.NoError(t, err, "Should error on non marshalable value in Set")
+	err := adapter.Set(testutil.TestKeyForSet, actual, &invalidTTL)
+	suite.Error(err, "Should error on non total fail value in Set")
+}
+
+func (suite *MultiCacheAdapterTestSuite) TestSetWithPartialErrorAndWarnings() {
+	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter.EnableWarnings()
+
+	var actual complex128
+
+	invalidTTL := -time.Second
+
+	suite.firstDummyAdapter.On("Set", testutil.TestKeyForSet, actual, &invalidTTL).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.secondDummyAdapter.On("Set", testutil.TestKeyForSet, actual, &invalidTTL).Once().Return(testutil.ErrTestingFailureCheck)
+	suite.thirdDummyAdapter.On("Set", testutil.TestKeyForSet, actual, &invalidTTL).Once().Return(nil)
+
+	err := adapter.Set(testutil.TestKeyForSet, actual, &invalidTTL)
+	suite.ErrorIs(err, cacheadapters.ErrMultiCacheWarning, "Should error with warning on non marshalable value in Set")
 }
