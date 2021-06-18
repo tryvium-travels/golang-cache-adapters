@@ -115,8 +115,8 @@ func stopLocalRedisServer() {
 
 // TestMain adds Global test setups and teardowns.
 func TestMain(m *testing.M) {
-	startLocalRedisServer()      // <--
-	defer stopLocalRedisServer() // <--
+	startLocalRedisServer()
+	defer stopLocalRedisServer()
 
 	code := m.Run()
 
