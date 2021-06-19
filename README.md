@@ -10,9 +10,12 @@
 # Golang Cache Adapters
 A set of Cache Adapters for various distributed systems (like Redis) written in Go.
 
+Now with a new [`MultiCacheAdapter`](/multicache) implementation!
+
 ## Supported CacheAdapter implementations
 
-- **Redis** -> using [`github.com/gomodule/redigo`](github.com/gomodule/redigo)
+- [**MultiCache**](/multicache) -> Leverages the possibility to use multiple cache adapters at the same time, useful to create fallbacks in case one or more of the cache service you specified gives temporary errors.
+- [**Redis**](/redis) -> using [`github.com/gomodule/redigo`](github.com/gomodule/redigo)
 
 ## Library reference
 
@@ -37,8 +40,10 @@ You can use `Delete` and `SetTTL` functions as well. For more info, check the do
 This example creates a new `RedisAdapter` and uses it, but you can replace it with any of the other
 supported Adapters.
 
+To know how to use the [`MultiCacheAdapter`](/multicache) check out the docs.
+
 ``` go
-package cacheadapters_test
+package main
 
 import (
 	"log"
