@@ -17,6 +17,7 @@ package multicacheadapters
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 	"sync"
 	"time"
 
@@ -40,13 +41,18 @@ type MultiCacheAdapter struct {
 //     index-based means that the array at the first position(s) will
 //     have more priority than those at latter positions.
 func New(adapters ...cacheadapters.CacheAdapter) (*MultiCacheAdapter, error) {
+	finalAdapters := make([]cacheadapters.CacheAdapter, 0, len(adapters))
 	for _, adapter := range adapters {
-		if adapter == nil {
-			return nil, ErrNilSubAdapter
+		if value := reflect.ValueOf(adapter); adapter != nil && value.IsValid() && !value.IsNil() {
+			finalAdapters = append(finalAdapters, adapter)
 		}
 	}
 
-	return &MultiCacheAdapter{adapters, false, sync.WaitGroup{}}, nil
+	if len(finalAdapters) == 0 {
+		return nil, ErrInvalidSubAdapters
+	}
+
+	return &MultiCacheAdapter{finalAdapters, false, sync.WaitGroup{}}, nil
 }
 
 // EnableWarning enable the return of warning errors.
@@ -173,14 +179,14 @@ func (mca *MultiCacheAdapter) OpenSession() (cacheadapters.CacheSessionAdapter, 
 		adapters = append(adapters, sessionAdapter)
 	}
 
-	err := mca.errorOrNil(errs)
-	if !errors.Is(err, ErrMultiCacheWarning) {
+	sessionAdapter, err := NewSession(adapters...)
+	if err != nil {
 		return nil, err
 	}
 
-	sessionAdapter, initErr := NewSession(adapters...)
-	if initErr != nil {
-		return nil, err
+	err = mca.errorOrNil(errs)
+	if !errors.Is(err, ErrMultiCacheWarning) {
+		return sessionAdapter, err
 	}
 
 	return sessionAdapter, err
@@ -194,7 +200,7 @@ func (mca *MultiCacheAdapter) errorOrNil(errs []error) error {
 		return err
 	}
 
-	if mca.showWarnings {
+	if mca.showWarnings && len(errs) > 0 {
 		return multierror.Append(ErrMultiCacheWarning, err)
 	}
 

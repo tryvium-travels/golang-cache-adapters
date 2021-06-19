@@ -38,9 +38,16 @@ type MultiCacheSessionAdapterTestSuite struct {
 	thirdDummyAdapter  *mockMultiCacheSessionAdapter
 }
 
-func (suite *MultiCacheSessionAdapterTestSuite) TestNewOK() {
-	_, err := multicacheadapters.NewSession(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
-	suite.NoError(err, "Should not give error on valid New")
+func (suite *MultiCacheSessionAdapterTestSuite) TestNewSessionOK() {
+	adapter, err := multicacheadapters.NewSession(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	suite.NotNil(adapter, "Should not be nil if NewSession is ok")
+	suite.NoError(err, "Should not give error on valid NewSession")
+}
+
+func (suite *MultiCacheSessionAdapterTestSuite) TestNewSessionNoAdapters() {
+	adapter, err := multicacheadapters.NewSession()
+	suite.Nil(adapter, "Should be nil if NewSession is without adapters")
+	suite.ErrorIs(err, multicacheadapters.ErrInvalidSubAdapters, "Should give ErrNilSubadapter on NewSession without adapters")
 }
 
 // Make sure that VariableThatShouldStartAtFive is set to five
@@ -51,21 +58,26 @@ func (suite *MultiCacheSessionAdapterTestSuite) SetupTest() {
 	suite.thirdDummyAdapter = newmockMultiCacheSessionAdapter()
 }
 
-func (suite *MultiCacheSessionAdapterTestSuite) TestNewWithNilAdapter() {
-	_, err := multicacheadapters.NewSession(nil, suite.secondDummyAdapter, suite.thirdDummyAdapter)
-	suite.Equal(multicacheadapters.ErrNilSubAdapter, err, "Should give error on nil first adapter")
+func (suite *MultiCacheSessionAdapterTestSuite) TestNewSessionWithNilAdapter() {
+	adapter, err := multicacheadapters.NewSession(nil, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	suite.NotNil(adapter, "Should not be nil if one is missing")
+	suite.NoError(err, "Should not give error on only nil first adapter")
 
-	_, err = multicacheadapters.NewSession(suite.firstDummyAdapter, nil, suite.thirdDummyAdapter)
-	suite.Equal(multicacheadapters.ErrNilSubAdapter, err, "Should give error on nil second adapter")
+	adapter, err = multicacheadapters.NewSession(suite.firstDummyAdapter, nil, suite.thirdDummyAdapter)
+	suite.NotNil(adapter, "Should not be nil if one is missing")
+	suite.NoError(err, "Should not give error on only nil second adapter")
 
-	_, err = multicacheadapters.NewSession(suite.firstDummyAdapter, suite.secondDummyAdapter, nil)
-	suite.Equal(multicacheadapters.ErrNilSubAdapter, err, "Should give error on nil third adapter")
+	adapter, err = multicacheadapters.NewSession(suite.firstDummyAdapter, suite.secondDummyAdapter, nil)
+	suite.NotNil(adapter, "Should not be nil if one is missing")
+	suite.NoError(err, "Should not give error on only nil third adapter")
 
-	_, err = multicacheadapters.NewSession(nil, nil, suite.thirdDummyAdapter)
-	suite.Equal(multicacheadapters.ErrNilSubAdapter, err, "Should give error on nil first and second adapter")
+	adapter, err = multicacheadapters.NewSession(nil, nil, suite.thirdDummyAdapter)
+	suite.NotNil(adapter, "Should not be nil if two is missing")
+	suite.NoError(err, "Should not give error on only 2 nil adapter")
 
-	_, err = multicacheadapters.NewSession(nil, nil, nil)
-	suite.Equal(multicacheadapters.ErrNilSubAdapter, err, "Should give error on all nil adapter")
+	adapter, err = multicacheadapters.NewSession(nil, nil, nil)
+	suite.Nil(adapter, "Should be nil if all are missing")
+	suite.Equal(multicacheadapters.ErrInvalidSubAdapters, err, "Should give error on all nil adapter")
 }
 
 func (suite *MultiCacheSessionAdapterTestSuite) TestGetOK() {
@@ -399,6 +411,5 @@ func (suite *MultiCacheSessionAdapterTestSuite) TestCloseWithPartialErrorAndWarn
 	suite.thirdDummyAdapter.On("Close").Once().Return(nil)
 
 	err := adapter.Close()
-	suite.Error(err, "Should error on non closable connection")
 	suite.ErrorIs(err, multicacheadapters.ErrMultiCacheWarning, "Should error with warning on non closable connection")
 }

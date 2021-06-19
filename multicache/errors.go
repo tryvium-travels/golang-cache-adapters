@@ -17,9 +17,9 @@ package multicacheadapters
 import "fmt"
 
 var (
-	// ErrNilSubAdapter will come out if you try to pass a nil sub-adapter when creating
-	// a new MultiCacheAdapter.
-	ErrNilSubAdapter = fmt.Errorf("cannot pass a nil sub-adapter to NewMultiCacheAdapter")
+	// ErrInvalidSubAdapters will come out if you try to pass one or more nil
+	// sub-adapters when creating a new MultiCacheAdapter or a session.
+	ErrInvalidSubAdapters = fmt.Errorf("you must pass at least one valid sub-adapter")
 	// ErrMultiCacheWarning will come out paired with other errors in case
 	// an non-fatal error occurs during a multicache operation.
 	//

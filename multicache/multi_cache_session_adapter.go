@@ -16,6 +16,7 @@ package multicacheadapters
 
 import (
 	"encoding/json"
+	"reflect"
 	"sync"
 	"time"
 
@@ -39,13 +40,18 @@ type MultiCacheSessionAdapter struct {
 //     index-based means that the array at the first position(s) will
 //     have more priority than those at latter positions.
 func NewSession(adapters ...cacheadapters.CacheSessionAdapter) (*MultiCacheSessionAdapter, error) {
+	finalAdapters := make([]cacheadapters.CacheSessionAdapter, 0, len(adapters))
 	for _, adapter := range adapters {
-		if adapter == nil {
-			return nil, ErrNilSubAdapter
+		if value := reflect.ValueOf(adapter); adapter != nil && value.IsValid() && !value.IsNil() {
+			finalAdapters = append(finalAdapters, adapter)
 		}
 	}
 
-	return &MultiCacheSessionAdapter{adapters, false, sync.WaitGroup{}}, nil
+	if len(finalAdapters) == 0 {
+		return nil, ErrInvalidSubAdapters
+	}
+
+	return &MultiCacheSessionAdapter{finalAdapters, false, sync.WaitGroup{}}, nil
 }
 
 // EnableWarning enable the return of warning errors.

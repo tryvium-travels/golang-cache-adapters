@@ -6,13 +6,12 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
-	multicacheadapters "github.com/tryvium-travels/golang-cache-adapters/multicache"
 	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
 
 type mockMultiCacheAdapter struct {
 	mock.Mock
-	*multicacheadapters.MultiCacheAdapter
+	initialized bool
 }
 
 func (mca *mockMultiCacheAdapter) Get(key string, objectRef interface{}) error {
@@ -44,16 +43,16 @@ func (mca *mockMultiCacheAdapter) Delete(key string) error {
 func (mca *mockMultiCacheAdapter) OpenSession() (cacheadapters.CacheSessionAdapter, error) {
 	args := mca.Called()
 
-	return args.Get(0).(cacheadapters.CacheSessionAdapter), args.Error(1)
+	return args.Get(0).(*mockMultiCacheSessionAdapter), args.Error(1)
 }
 
 func newmockMultiCacheAdapter() *mockMultiCacheAdapter {
-	return &mockMultiCacheAdapter{}
+	return &mockMultiCacheAdapter{initialized: true}
 }
 
 type mockMultiCacheSessionAdapter struct {
 	mock.Mock
-	*multicacheadapters.MultiCacheSessionAdapter
+	initialized bool
 }
 
 func (mca *mockMultiCacheSessionAdapter) Get(key string, objectRef interface{}) error {
@@ -89,5 +88,5 @@ func (mca *mockMultiCacheSessionAdapter) Close() error {
 }
 
 func newmockMultiCacheSessionAdapter() *mockMultiCacheSessionAdapter {
-	return &mockMultiCacheSessionAdapter{}
+	return &mockMultiCacheSessionAdapter{initialized: true}
 }
