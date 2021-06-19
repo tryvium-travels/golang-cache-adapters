@@ -12,14 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package cacheadapters contains the generic entities used to access
-// the cache.
+// Package multicacheadapters contains the implementations of
+// CacheAdapter and CacheSessionAdapter with the objective of
+// accessing multiple cache sources with fallback support.
 //
-// In this package you will find the CacheAdapter and CacheSessionAdapter
-// interfaces, used by the specific implementations to access the cache,
-// along with a MultiCacheProvider struct you can use to access multiple
-// cache adapters with an index-based priority mechanism.
-//
-//    If you want to see the specific implementations go to the folder with the
-//    name of the implementation you are searching (e.g. "redis").
-package cacheadapters
+// Just use this adapter and when a cache source errors, it will
+// automatically perform the operations on other sources.
+package multicacheadapters
