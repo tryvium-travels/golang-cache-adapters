@@ -28,7 +28,7 @@ import (
 
 type mockMultiCacheAdapter struct {
 	mock.Mock
-	cacheadapters.CacheAdapter
+	*multicacheadapters.MultiCacheAdapter
 }
 
 func (mca *mockMultiCacheAdapter) Get(key string, objectRef interface{}) error {
