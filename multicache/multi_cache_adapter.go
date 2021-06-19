@@ -127,7 +127,6 @@ func (mca *MultiCacheAdapter) Set(key string, object interface{}, TTL *time.Dura
 		err := adapter.Set(key, object, TTL)
 		if err != nil {
 			errs = append(errs, err)
-			continue
 		}
 	}
 
@@ -142,7 +141,6 @@ func (mca *MultiCacheAdapter) SetTTL(key string, newTTL time.Duration) error {
 		err := adapter.SetTTL(key, newTTL)
 		if err != nil {
 			errs = append(errs, err)
-			continue
 		}
 	}
 
@@ -156,7 +154,6 @@ func (mca *MultiCacheAdapter) Delete(key string) error {
 		err := adapter.Delete(key)
 		if err != nil {
 			errs = append(errs, err)
-			continue
 		}
 	}
 
