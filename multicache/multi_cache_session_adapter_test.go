@@ -19,47 +19,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 	multicacheadapters "github.com/tryvium-travels/golang-cache-adapters/multicache"
 	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
-
-type mockMultiCacheSessionAdapter struct {
-	mock.Mock
-	*multicacheadapters.MultiCacheSessionAdapter
-}
-
-func (mca *mockMultiCacheSessionAdapter) Get(key string, objectRef interface{}) error {
-	args := mca.Called(key, objectRef)
-
-	json.Unmarshal([]byte(testutil.TestValueJSON), &objectRef)
-
-	return args.Error(0)
-}
-
-func (mca *mockMultiCacheSessionAdapter) Set(key string, object interface{}, newTTL *time.Duration) error {
-	args := mca.Called(key, object, newTTL)
-
-	return args.Error(0)
-}
-
-func (mca *mockMultiCacheSessionAdapter) SetTTL(key string, newTTL time.Duration) error {
-	args := mca.Called(key, newTTL)
-
-	return args.Error(0)
-}
-
-func (mca *mockMultiCacheSessionAdapter) Delete(key string) error {
-	args := mca.Called(key)
-
-	return args.Error(0)
-}
-
-func newmockMultiCacheSessionAdapter() *mockMultiCacheSessionAdapter {
-	return &mockMultiCacheSessionAdapter{}
-}
 
 func TestMultiCacheSessionAdapterSuite(t *testing.T) {
 	suite.Run(t, new(MultiCacheSessionAdapterTestSuite))

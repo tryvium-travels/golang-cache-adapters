@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/mock"
+	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 	multicacheadapters "github.com/tryvium-travels/golang-cache-adapters/multicache"
 	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
@@ -38,6 +39,12 @@ func (mca *mockMultiCacheAdapter) Delete(key string) error {
 	args := mca.Called(key)
 
 	return args.Error(0)
+}
+
+func (mca *mockMultiCacheAdapter) OpenSession() (cacheadapters.CacheSessionAdapter, error) {
+	args := mca.Called()
+
+	return args.Get(0).(cacheadapters.CacheSessionAdapter), args.Error(1)
 }
 
 func newmockMultiCacheAdapter() *mockMultiCacheAdapter {

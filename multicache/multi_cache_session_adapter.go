@@ -126,7 +126,6 @@ func (mcsa *MultiCacheSessionAdapter) Set(key string, object interface{}, TTL *t
 		err := adapter.Set(key, object, TTL)
 		if err != nil {
 			errs = append(errs, err)
-			continue
 		}
 	}
 
@@ -141,7 +140,6 @@ func (mcsa *MultiCacheSessionAdapter) SetTTL(key string, newTTL time.Duration) e
 		err := adapter.SetTTL(key, newTTL)
 		if err != nil {
 			errs = append(errs, err)
-			continue
 		}
 	}
 
@@ -155,7 +153,6 @@ func (mcsa *MultiCacheSessionAdapter) Delete(key string) error {
 		err := adapter.Delete(key)
 		if err != nil {
 			errs = append(errs, err)
-			continue
 		}
 	}
 
@@ -169,7 +166,6 @@ func (mcsa *MultiCacheSessionAdapter) Close() error {
 		err := adapter.Close()
 		if err != nil {
 			errs = append(errs, err)
-			continue
 		}
 	}
 
