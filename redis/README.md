@@ -6,17 +6,13 @@
 ![GitHub](https://img.shields.io/github/license/tryvium-travels/golang-cache-adapters?style=flat-square)
 ![Twitter Follow](https://img.shields.io/twitter/follow/tryviumtravels?style=social)
 
-# Multi Cache Adapter implementation
-A `CacheAdapter` implementation that allows to connect and use multiple adapters at the same time.
+# Cache Adapter implementation for Redis
 
-## Features
+A `CacheAdapter` implementation that allows to connect and use a Redis instance.
 
-- Allows the creation of fallback cache logics, allowing to reach different cache types if one of them is failing for any reason
-- Allows, optionally, to track partial failures as warnings, so you can log them using your preferred method
+Beware that at the moment it has the [**github.com/gomodule/redigo**](github.com/gomodule/redigo) dependency
 
 ## Usage
-
-Since `MultiCacheAdapter` and `MultiCacheSessionAdapter` implement the respective interfaces (`CacheAdapter` and `CacheSessionAdapter`) you have all the methods at your disposal.
 
 Please refer to the following example for the correct usage:
 
@@ -30,53 +26,25 @@ import (
 	"github.com/gomodule/redigo/redis"
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 	rediscacheadapters "github.com/tryvium-travels/golang-cache-adapters/redis"
-	multicacheadapters "github.com/tryvium-travels/golang-cache-adapters/multicache"
 )
 
 func main() {
-	// Ideally you would want to use 2 DIFFERENT cache types
-	// for the sake of the simplicity, we will just create 2
-	// adapters of the same type.
+	redisURI := "rediss://my-redis-instance-uri:port"
 
-	redisURI1 := "rediss://my-redis-instance-uri1:port"
-	redisURI2 := "rediss://my-redis-instance-uri2:port"
-
-	myRedisPool1 := &redis.Pool{
+	myRedisPool := &redis.Pool{
 		Dial: func() (redis.Conn, error) {
 			// obtain a redis connection, there
 			// are plenty of ways to do that.
-			return redis.DialURL(redisURI1)
-		},
-	}
-
-	myRedisPool2 := &redis.Pool{
-		Dial: func() (redis.Conn, error) {
-			// obtain a redis connection, there
-			// are plenty of ways to do that.
-			return redis.DialURL(redisURI2)
+			return redis.DialURL(redisURI)
 		},
 	}
 
 	exampleTTL := time.Hour
 
-	// first we create the adapters.
-	redisAdapter1, err := rediscacheadapters.New(myRedisPool1, exampleTTL)
+	adapter, err := rediscacheadapters.New(myRedisPool, exampleTTL)
 	if err != nil {
 		// remember to check for errors
-		log.Fatalf("Redis Adapter 1 initialization error: %s", err)
-	}
-
-	redisAdapter2, err := rediscacheadapters.New(myRedisPool1, exampleTTL)
-	if err != nil {
-		// remember to check for errors
-		log.Fatalf("Redis Adapter 2 initialization error: %s", err)
-	}
-
-	// then we create a MultiCacheAdapter to use them at the same time.
-	adapter, err := multicacheadapters.New(redisAdapter1, redisAdapter2)
-	if err != nil {
-		// remember to check for errors
-		log.Fatalf("Multi Cache Adapter 2 initialization error: %s", err)
+		log.Fatalf("Adapter initialization error: %s", err)
 	}
 
 	type exampleStruct struct {
