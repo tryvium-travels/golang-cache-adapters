@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cacheadapters_test
+package multicacheadapters_test
 
 import (
 	"encoding/json"
@@ -22,15 +22,16 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
+	multicacheadapters "github.com/tryvium-travels/golang-cache-adapters/multicache"
 	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
 
-type mockCacheAdapter struct {
+type mockMultiCacheAdapter struct {
 	mock.Mock
 	cacheadapters.CacheAdapter
 }
 
-func (mca *mockCacheAdapter) Get(key string, objectRef interface{}) error {
+func (mca *mockMultiCacheAdapter) Get(key string, objectRef interface{}) error {
 	args := mca.Called(key, objectRef)
 
 	json.Unmarshal([]byte(testutil.TestValueJSON), &objectRef)
@@ -38,28 +39,26 @@ func (mca *mockCacheAdapter) Get(key string, objectRef interface{}) error {
 	return args.Error(0)
 }
 
-func (mca *mockCacheAdapter) Set(key string, object interface{}, newTTL *time.Duration) error {
+func (mca *mockMultiCacheAdapter) Set(key string, object interface{}, newTTL *time.Duration) error {
 	args := mca.Called(key, object, newTTL)
 
 	return args.Error(0)
 }
 
-func (mca *mockCacheAdapter) SetTTL(key string, newTTL time.Duration) error {
+func (mca *mockMultiCacheAdapter) SetTTL(key string, newTTL time.Duration) error {
 	args := mca.Called(key, newTTL)
 
 	return args.Error(0)
 }
 
-func (mca *mockCacheAdapter) Delete(key string) error {
+func (mca *mockMultiCacheAdapter) Delete(key string) error {
 	args := mca.Called(key)
 
 	return args.Error(0)
 }
 
-func newMockCacheAdapter() *mockCacheAdapter {
-	return &mockCacheAdapter{
-		CacheAdapter: nil,
-	}
+func newmockMultiCacheAdapter() *mockMultiCacheAdapter {
+	return &mockMultiCacheAdapter{}
 }
 
 func TestMultiCacheAdapterSuite(t *testing.T) {
@@ -70,43 +69,43 @@ func TestMultiCacheAdapterSuite(t *testing.T) {
 // isolated suite.
 type MultiCacheAdapterTestSuite struct {
 	suite.Suite
-	firstDummyAdapter  *mockCacheAdapter
-	secondDummyAdapter *mockCacheAdapter
-	thirdDummyAdapter  *mockCacheAdapter
+	firstDummyAdapter  *mockMultiCacheAdapter
+	secondDummyAdapter *mockMultiCacheAdapter
+	thirdDummyAdapter  *mockMultiCacheAdapter
 }
 
-func (suite *MultiCacheAdapterTestSuite) TestNewMultiCacheAdapterOK() {
-	_, err := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+func (suite *MultiCacheAdapterTestSuite) TestNewOK() {
+	_, err := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 	suite.NoError(err, "Should not give error on valid New")
 }
 
 // Make sure that VariableThatShouldStartAtFive is set to five
 // before each test
 func (suite *MultiCacheAdapterTestSuite) SetupTest() {
-	suite.firstDummyAdapter = newMockCacheAdapter()
-	suite.secondDummyAdapter = newMockCacheAdapter()
-	suite.thirdDummyAdapter = newMockCacheAdapter()
+	suite.firstDummyAdapter = newmockMultiCacheAdapter()
+	suite.secondDummyAdapter = newmockMultiCacheAdapter()
+	suite.thirdDummyAdapter = newmockMultiCacheAdapter()
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestNewWithNilAdapter() {
-	_, err := cacheadapters.NewMultiCacheAdapter(nil, suite.secondDummyAdapter, suite.thirdDummyAdapter)
-	suite.Equal(cacheadapters.ErrNilSubAdapter, err, "Should give error on nil first adapter")
+	_, err := multicacheadapters.New(nil, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	suite.Equal(multicacheadapters.ErrNilSubAdapter, err, "Should give error on nil first adapter")
 
-	_, err = cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, nil, suite.thirdDummyAdapter)
-	suite.Equal(cacheadapters.ErrNilSubAdapter, err, "Should give error on nil second adapter")
+	_, err = multicacheadapters.New(suite.firstDummyAdapter, nil, suite.thirdDummyAdapter)
+	suite.Equal(multicacheadapters.ErrNilSubAdapter, err, "Should give error on nil second adapter")
 
-	_, err = cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, nil)
-	suite.Equal(cacheadapters.ErrNilSubAdapter, err, "Should give error on nil third adapter")
+	_, err = multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, nil)
+	suite.Equal(multicacheadapters.ErrNilSubAdapter, err, "Should give error on nil third adapter")
 
-	_, err = cacheadapters.NewMultiCacheAdapter(nil, nil, suite.thirdDummyAdapter)
-	suite.Equal(cacheadapters.ErrNilSubAdapter, err, "Should give error on nil first and second adapter")
+	_, err = multicacheadapters.New(nil, nil, suite.thirdDummyAdapter)
+	suite.Equal(multicacheadapters.ErrNilSubAdapter, err, "Should give error on nil first and second adapter")
 
-	_, err = cacheadapters.NewMultiCacheAdapter(nil, nil, nil)
-	suite.Equal(cacheadapters.ErrNilSubAdapter, err, "Should give error on all nil adapter")
+	_, err = multicacheadapters.New(nil, nil, nil)
+	suite.Equal(multicacheadapters.ErrNilSubAdapter, err, "Should give error on all nil adapter")
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestGetOK() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	var actual testutil.TestStruct
 
@@ -122,7 +121,7 @@ func (suite *MultiCacheAdapterTestSuite) TestGetOK() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFail1() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	var actual testutil.TestStruct
 
@@ -138,7 +137,7 @@ func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFail1() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFail2() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	var actual testutil.TestStruct
 
@@ -154,7 +153,7 @@ func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFail2() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFail3() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	var actual testutil.TestStruct
 
@@ -170,7 +169,7 @@ func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFail3() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFailMulti() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	var actual testutil.TestStruct
 
@@ -186,7 +185,7 @@ func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFailMulti(
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestGetOnTotalFailAndDisabledWarnings() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 	adapter.DisableWarnings()
 
 	var actual testutil.TestStruct
@@ -201,7 +200,7 @@ func (suite *MultiCacheAdapterTestSuite) TestGetOnTotalFailAndDisabledWarnings()
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFailAndWarnings() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 	adapter.EnableWarnings()
 
 	var actual testutil.TestStruct
@@ -212,13 +211,13 @@ func (suite *MultiCacheAdapterTestSuite) TestGetUsingPriorityOnPartialFailAndWar
 	suite.secondDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(nil)
 
 	err := adapter.Get(testutil.TestKeyForGet, &actual)
-	suite.ErrorIs(err, cacheadapters.ErrMultiCacheWarning, "Should error on valid Get with a warning")
+	suite.ErrorIs(err, multicacheadapters.ErrMultiCacheWarning, "Should error on valid Get with a warning")
 
 	suite.Equal(testutil.TestValue.Value, actual.Value, "Should be equal to the provided test value")
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestGetWithNilReference() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	var dummyRawMessage json.RawMessage
 	suite.firstDummyAdapter.On("Get", testutil.TestKeyForGet, &dummyRawMessage).Once().Return(cacheadapters.ErrGetRequiresObjectReference)
@@ -230,7 +229,7 @@ func (suite *MultiCacheAdapterTestSuite) TestGetWithNilReference() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestGetWithNonUnmarshalableReference() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	actual := complex128(1)
 
@@ -246,7 +245,7 @@ func (suite *MultiCacheAdapterTestSuite) TestGetWithNonUnmarshalableReference() 
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestSetOK() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	fakeTTL := time.Second
 
@@ -259,7 +258,7 @@ func (suite *MultiCacheAdapterTestSuite) TestSetOK() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestSetOKWithNilTTL() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	var nilDuration *time.Duration
 	suite.firstDummyAdapter.On("Set", testutil.TestKeyForSet, testutil.TestValue, nilDuration).Once().Return(nil)
@@ -271,7 +270,7 @@ func (suite *MultiCacheAdapterTestSuite) TestSetOKWithNilTTL() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestSetWithInvalidTTL() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	invalidTTL := -time.Second
 
@@ -284,7 +283,7 @@ func (suite *MultiCacheAdapterTestSuite) TestSetWithInvalidTTL() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestSetWithError() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 	adapter.DisableWarnings()
 
 	var actual complex128
@@ -300,7 +299,7 @@ func (suite *MultiCacheAdapterTestSuite) TestSetWithError() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestSetWithPartialErrorAndWarnings() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 	adapter.EnableWarnings()
 
 	var actual complex128
@@ -312,11 +311,11 @@ func (suite *MultiCacheAdapterTestSuite) TestSetWithPartialErrorAndWarnings() {
 	suite.thirdDummyAdapter.On("Set", testutil.TestKeyForSet, actual, &invalidTTL).Once().Return(nil)
 
 	err := adapter.Set(testutil.TestKeyForSet, actual, &invalidTTL)
-	suite.ErrorIs(err, cacheadapters.ErrMultiCacheWarning, "Should error with warning on non marshalable value in Set")
+	suite.ErrorIs(err, multicacheadapters.ErrMultiCacheWarning, "Should error with warning on non marshalable value in Set")
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestSetTTLOK() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	fakeTTL := time.Second
 
@@ -329,7 +328,7 @@ func (suite *MultiCacheAdapterTestSuite) TestSetTTLOK() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestSetTTLWithInvalidTTL() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	invalidTTL := -time.Second
 
@@ -342,7 +341,7 @@ func (suite *MultiCacheAdapterTestSuite) TestSetTTLWithInvalidTTL() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestSetTTLWithError() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 	adapter.DisableWarnings()
 
 	invalidTTL := -time.Second
@@ -356,7 +355,7 @@ func (suite *MultiCacheAdapterTestSuite) TestSetTTLWithError() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestSetTTLWithPartialErrorAndWarnings() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 	adapter.EnableWarnings()
 
 	invalidTTL := -time.Second
@@ -366,11 +365,11 @@ func (suite *MultiCacheAdapterTestSuite) TestSetTTLWithPartialErrorAndWarnings()
 	suite.thirdDummyAdapter.On("SetTTL", testutil.TestKeyForSet, invalidTTL).Once().Return(nil)
 
 	err := adapter.SetTTL(testutil.TestKeyForSet, invalidTTL)
-	suite.ErrorIs(err, cacheadapters.ErrMultiCacheWarning, "Should error with warning on non marshalable value in Set")
+	suite.ErrorIs(err, multicacheadapters.ErrMultiCacheWarning, "Should error with warning on non marshalable value in Set")
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestDeleteOK() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	suite.firstDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(nil)
 	suite.secondDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(nil)
@@ -381,7 +380,7 @@ func (suite *MultiCacheAdapterTestSuite) TestDeleteOK() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestDeleteWithInvalidTTL() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 
 	suite.firstDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(nil)
 	suite.secondDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(nil)
@@ -392,7 +391,7 @@ func (suite *MultiCacheAdapterTestSuite) TestDeleteWithInvalidTTL() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestDeleteWithError() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 	adapter.DisableWarnings()
 
 	suite.firstDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(testutil.ErrTestingFailureCheck)
@@ -404,7 +403,7 @@ func (suite *MultiCacheAdapterTestSuite) TestDeleteWithError() {
 }
 
 func (suite *MultiCacheAdapterTestSuite) TestDeleteWithPartialErrorAndWarnings() {
-	adapter, _ := cacheadapters.NewMultiCacheAdapter(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
+	adapter, _ := multicacheadapters.New(suite.firstDummyAdapter, suite.secondDummyAdapter, suite.thirdDummyAdapter)
 	adapter.EnableWarnings()
 
 	suite.firstDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(testutil.ErrTestingFailureCheck)
@@ -412,5 +411,5 @@ func (suite *MultiCacheAdapterTestSuite) TestDeleteWithPartialErrorAndWarnings()
 	suite.thirdDummyAdapter.On("Delete", testutil.TestKeyForDelete).Once().Return(nil)
 
 	err := adapter.Delete(testutil.TestKeyForDelete)
-	suite.ErrorIs(err, cacheadapters.ErrMultiCacheWarning, "Should error with warning on non marshalable value in Set")
+	suite.ErrorIs(err, multicacheadapters.ErrMultiCacheWarning, "Should error with warning on non marshalable value in Set")
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cacheadapters
+package multicacheadapters
 
 import (
 	"encoding/json"
@@ -20,24 +20,25 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 )
 
 // MultiCacheAdapter is a cache adapter which uses multiple
 // sub-adapters, following a priority given by the index of
 // the adapter in the inner array of adapters.
 type MultiCacheAdapter struct {
-	subAdapters  []CacheAdapter // The array of sub-adapters
+	subAdapters  []cacheadapters.CacheAdapter // The array of sub-adapters
 	showWarnings bool
 	wg           sync.WaitGroup
 }
 
-// NewMultiCacheAdapter creates a new multi cache adapter from an
+// New creates a new multi cache adapter from an
 // index-based priority array of cache adapters (called sub-adapters) and a
 // flag instructing to show warning (non-fatal) errors.
 //
 //     index-based means that the array at the first position(s) will
 //     have more priority than those at latter positions.
-func NewMultiCacheAdapter(adapters ...CacheAdapter) (*MultiCacheAdapter, error) {
+func New(adapters ...cacheadapters.CacheAdapter) (*MultiCacheAdapter, error) {
 	for _, adapter := range adapters {
 		if adapter == nil {
 			return nil, ErrNilSubAdapter
