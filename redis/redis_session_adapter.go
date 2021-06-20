@@ -54,7 +54,6 @@ func NewSession(conn redis.Conn, defaultTTL time.Duration) (cacheadapters.CacheS
 // Get obtains a value from the cache using a key, then tries to unmarshal
 // it into the object reference passed as parameter.
 func (rsa *RedisSessionAdapter) Get(key string, objectRef interface{}) error {
-
 	resultContent, err := redis.Bytes(rsa.conn.Do("GET", key))
 	if err == redis.ErrNil {
 		return cacheadapters.ErrNotFound
@@ -90,7 +89,7 @@ func (rsa *RedisSessionAdapter) Set(key string, object interface{}, TTL *time.Du
 		return err
 	}
 
-	_, err = rsa.conn.Do("SETEX", key, (*TTL).Seconds(), objectContent)
+	_, err = rsa.conn.Do("PSETEX", key, (*TTL).Milliseconds(), objectContent)
 	if err != nil {
 		return err
 	}
@@ -104,7 +103,7 @@ func (rsa *RedisSessionAdapter) SetTTL(key string, newTTL time.Duration) error {
 	var err error
 
 	if newTTL > cacheadapters.TTLExpired {
-		_, err = rsa.conn.Do("EXPIRE", key, newTTL.Seconds())
+		_, err = rsa.conn.Do("PEXPIRE", key, newTTL.Milliseconds())
 		return err
 	} else {
 		return rsa.Delete(key)
