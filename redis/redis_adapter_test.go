@@ -15,212 +15,115 @@
 package rediscacheadapters_test
 
 import (
-	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 	rediscacheadapters "github.com/tryvium-travels/golang-cache-adapters/redis"
 	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
 
-func TestNewOK(t *testing.T) {
-	_, err := rediscacheadapters.New(testRedisPool, time.Second)
-	require.NoError(t, err, "Should not give error on valid New")
+func TestRedisAdapterSuite(t *testing.T) {
+	defaultTTL := 10 * time.Second
+	suite.Run(t, newRedisTestSuite(defaultTTL))
 }
 
-func TestNewWithNilPool(t *testing.T) {
-	_, err := rediscacheadapters.New(nil, -time.Second)
-	require.Error(t, err, "Should give error on nil redis Pool")
+type RedisAdapterTestSuite struct {
+	*suite.Suite
+	*testutil.CacheAdapterPartialTestSuite
 }
 
-func TestNewWithNegativeDuration(t *testing.T) {
-	_, err := rediscacheadapters.New(testRedisPool, -time.Second)
-	require.Error(t, err, "Should give error on negative time Duration for TTL")
+// newRedisTestSuite creates a new test suite with tests for Redis adapters and sessions.
+func newRedisTestSuite(defaultTTL time.Duration) *RedisAdapterTestSuite {
+	var suite suite.Suite
+	newAdapter := func() (cacheadapters.CacheAdapter, error) {
+		return rediscacheadapters.New(testRedisPool, defaultTTL)
+	}
+
+	newSession := func() (cacheadapters.CacheSessionAdapter, error) {
+		adapter, err := rediscacheadapters.New(testRedisPool, defaultTTL)
+		if err != nil {
+			panic(err)
+		}
+
+		return adapter.OpenSession()
+	}
+
+	return &RedisAdapterTestSuite{
+		Suite: &suite,
+		CacheAdapterPartialTestSuite: &testutil.CacheAdapterPartialTestSuite{
+			Suite:      &suite,
+			DefaultTTL: defaultTTL,
+			NewAdapter: newAdapter,
+			NewSession: newSession,
+			SleepFunc: func(duration time.Duration) {
+				localRedisServer.FastForward(duration)
+			},
+		},
+	}
 }
 
-func TestGetOK(t *testing.T) {
-	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
-
-	var actual testutil.TestStruct
-	err := adapter.Get(testutil.TestKeyForGet, &actual)
-	require.Equal(t, testutil.TestValue, actual, "Should be the correct value on a correct get and key not expired")
-	require.NoError(t, err, "Should not return an error on valid object reference")
+func (suite *RedisAdapterTestSuite) SetupSuite() {
+	startLocalRedisServer()
 }
 
-func TestGetWithNilReference(t *testing.T) {
-	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
-
-	err := adapter.Get(testutil.TestKeyForGet, nil)
-	require.Equal(t, cacheadapters.ErrGetRequiresObjectReference, err, "Should return ErrGetRequiresObjectReference on nil object reference")
+func (Test *RedisAdapterTestSuite) TearDownSuite() {
+	stopLocalRedisServer()
 }
 
-func TestGetWithNonUnmarshalableReference(t *testing.T) {
-	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
-
-	actual := complex128(1)
-	err := adapter.Get(testutil.TestKeyForGet, &actual)
-	require.Error(t, err, "Should return an error on non unmarshalable object reference")
+func (suite *RedisAdapterTestSuite) TestNew_NilPool() {
+	adapter, err := rediscacheadapters.New(nil, -time.Second)
+	suite.Require().Nil(adapter, "Should be nil on nil redis Pool")
+	suite.Require().Error(err, "Should give error on nil redis Pool")
 }
 
-func TestGetWithInvalidPool(t *testing.T) {
+func (suite *RedisAdapterTestSuite) TestNew_NegativeTTL() {
+	adapter, err := rediscacheadapters.New(testRedisPool, -time.Second)
+	suite.Require().Nil(adapter, "Should be nil on negative time duration for TTL")
+	suite.Require().Error(err, "Should give error on negative time duration for TTL")
+}
+
+func (suite *RedisAdapterTestSuite) TestGet_InvalidPool() {
 	adapter, _ := rediscacheadapters.New(invalidRedisPool, time.Second)
 
 	var actual testutil.TestStruct
 	err := adapter.Get(testutil.TestKeyForGet, &actual)
 
-	require.Equal(t, testutil.TestStruct{}, actual, "Actual should remain empty since the pool is invalid")
-	require.Error(t, err, "Should error since the pool is invalid")
+	suite.Require().Equal(testutil.TestStruct{}, actual, "Actual should remain empty since the pool is invalid")
+	suite.Require().Error(err, "Should error since the pool is invalid")
 }
 
-func TestGetWithInvalidKey(t *testing.T) {
-	testKeyForGetButInvalid := fmt.Sprintf("%s:but-invalid", testutil.TestKeyForGet)
-
-	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
-
-	var actual testutil.TestStruct
-	err := adapter.Get(testKeyForGetButInvalid, &actual)
-
-	require.Equal(t, testutil.TestStruct{}, actual, "Actual should remain empty since the key is invalid")
-	require.Equal(t, cacheadapters.ErrNotFound, err, "Should be ErrNotFound since the key is invalid")
-}
-
-func TestOpenSessionOK(t *testing.T) {
-	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
-
-	session, err := adapter.OpenSession()
-	require.NoError(t, err, "Should not error on valid session opening")
-	defer session.Close()
-}
-
-func TestSetOK(t *testing.T) {
-	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
-
-	duration := new(time.Duration)
-	*duration = time.Second
-
-	err := adapter.Set(testutil.TestKeyForSet, testutil.TestValue, duration)
-	require.NoError(t, err, "Should not error on valid set")
-
-	testValueContent, err := localRedisServer.Get(testutil.TestKeyForSet)
-	require.NoError(t, err, "Value just set must exist, hence no error")
-
-	var actual testutil.TestStruct
-	err = json.Unmarshal([]byte(testValueContent), &actual)
-	require.NoError(t, err, "Value just set be a valid JSON, hence no error")
-
-	require.Equal(t, testutil.TestValue, actual, "The value just set must be equal to the test value")
-}
-
-func TestSetOKWithNilTTL(t *testing.T) {
-	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
-
-	err := adapter.Set(testutil.TestKeyForSet, testutil.TestValue, nil)
-	require.NoError(t, err, "Should not error on valid set")
-
-	testValueContent, err := localRedisServer.Get(testutil.TestKeyForSet)
-	require.NoError(t, err, "Value just set must exist, hence no error")
-
-	var actual testutil.TestStruct
-	err = json.Unmarshal([]byte(testValueContent), &actual)
-	require.NoError(t, err, "Value just set be a valid JSON, hence no error")
-
-	require.Equal(t, testutil.TestValue, actual, "The value just set must be equal to the test value")
-}
-
-func TestSetWithInvalidTTL(t *testing.T) {
-	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
-
-	duration := new(time.Duration)
-	*duration = -time.Second
-
-	err := adapter.Set(testutil.TestKeyForSet, testutil.TestValue, duration)
-	require.Error(t, err, "Should error on invalid duration")
-}
-
-func TestSetWithInvalidPool(t *testing.T) {
+func (suite *RedisAdapterTestSuite) TestSet_InvalidPool() {
 	adapter, _ := rediscacheadapters.New(invalidRedisPool, time.Second)
 
 	err := adapter.Set(testutil.TestKeyForSet, testutil.TestValue, nil)
-	require.Error(t, err, "Should error since the pool is invalid")
+	suite.Require().Error(err, "Should error since the pool is invalid")
 }
 
-func TestSetWithNonUnmarshalableReference(t *testing.T) {
-	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
-
-	actualNonUnmarshallable := complex128(1)
-	err := adapter.Set(testutil.TestKeyForSet, actualNonUnmarshallable, nil)
-	require.Error(t, err, "Should error since the value is not unmarshallable")
-}
-
-func TestOpenSessionWithInvalidRedisPool(t *testing.T) {
+func (suite *RedisAdapterTestSuite) TestOpenSession_InvalidPool() {
 	adapter, _ := rediscacheadapters.New(invalidRedisPool, time.Second)
 
 	_, err := adapter.OpenSession()
-	require.Error(t, err, "Should error on invalid session opening")
+	suite.Require().Error(err, "Should error on invalid session opening")
 }
 
-func TestSetTTLOK(t *testing.T) {
-	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
-
-	err := localRedisServer.Set(testutil.TestKeyForSetTTL, "1")
-	require.NoError(t, err, "Must not error on setting test var")
-
-	err = adapter.SetTTL(testutil.TestKeyForSetTTL, time.Second*5)
-	require.NoError(t, err, "Must not error on setting the expiration")
-
-	// goes into the future when the key is expired
-	localRedisServer.FastForward(time.Second * 6)
-
-	_, err = localRedisServer.Get(testutil.TestKeyForSetTTL)
-	require.Equal(t, miniredis.ErrKeyNotFound, err, "Must not find the expired key")
-}
-
-func TestSetTTLExpired(t *testing.T) {
-	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
-
-	err := localRedisServer.Set(testutil.TestKeyForSetTTL, "1")
-	require.NoError(t, err, "Must not error on setting test var")
-
-	err = adapter.SetTTL(testutil.TestKeyForSetTTL, cacheadapters.TTLExpired)
-	require.NoError(t, err, "Must not error on setting the expiration")
-
-	_, err = localRedisServer.Get(testutil.TestKeyForSetTTL)
-	require.Equal(t, miniredis.ErrKeyNotFound, err, "Must not find the expired key")
-}
-
-func TestSetTTLWithInvalidPool(t *testing.T) {
+func (suite *RedisAdapterTestSuite) TestSetTTL_InvalidPool() {
 	adapter, _ := rediscacheadapters.New(invalidRedisPool, time.Second)
 
 	err := localRedisServer.Set(testutil.TestKeyForSetTTL, "1")
-	require.NoError(t, err, "Must not error on setting test var")
+	suite.Require().NoError(err, "Must not error on setting test var")
 
 	err = adapter.SetTTL(testutil.TestKeyForSetTTL, time.Second)
-	require.Error(t, err, "Should error since the pool is invalid")
+	suite.Require().Error(err, "Should error since the pool is invalid")
 }
 
-func TestDeleteOK(t *testing.T) {
-	adapter, _ := rediscacheadapters.New(testRedisPool, time.Second)
-
-	err := localRedisServer.Set(testutil.TestKeyForDelete, "1")
-	require.NoError(t, err, "Must not error on setting test var")
-
-	err = adapter.Delete(testutil.TestKeyForDelete)
-	require.NoError(t, err, "Must not error on deleting the key")
-
-	_, err = localRedisServer.Get(testutil.TestKeyForDelete)
-	require.Equal(t, miniredis.ErrKeyNotFound, err, "Must not find the deleted key")
-}
-
-func TestDeleteWithInvalidPool(t *testing.T) {
+func (suite *RedisAdapterTestSuite) TestDelete_InvalidPool() {
 	adapter, _ := rediscacheadapters.New(invalidRedisPool, time.Second)
 
 	err := localRedisServer.Set(testutil.TestKeyForDelete, "1")
-	require.NoError(t, err, "Must not error on setting test var")
+	suite.Require().NoError(err, "Must not error on setting test var")
 
 	err = adapter.Delete(testutil.TestKeyForDelete)
-	require.Error(t, err, "Should error since the pool is invalid")
+	suite.Require().Error(err, "Should error since the pool is invalid")
 }

@@ -18,15 +18,10 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"os"
-	"testing"
-	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gomodule/redigo/redis"
-	"github.com/stretchr/testify/mock"
 
-	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
 
@@ -35,49 +30,6 @@ var (
 	testRedisPool    *redis.Pool          // The pool used in all the tests, except for the "InvalidPool" ones.
 	invalidRedisPool *redis.Pool          // The pool used when in need to test invalid connection behaviours.
 )
-
-// erroringMockedRedisConn mocks the redis call to increase code coverage
-type erroringMockedRedisConn struct {
-	mock.Mock
-	redis.Conn
-}
-
-type erroringMockedSENDMULTIRedisConn struct {
-	*erroringMockedRedisConn
-}
-
-func (emc *erroringMockedSENDMULTIRedisConn) Send(commandName string, args ...interface{}) error {
-	mockArgs := emc.Called(append([]interface{}{commandName}, args...)...)
-	return mockArgs.Error(0)
-}
-
-type erroringMockedDOEXECRedisConn struct {
-	*erroringMockedSENDMULTIRedisConn
-}
-
-func (emc *erroringMockedDOEXECRedisConn) Do(commandName string, args ...interface{}) (interface{}, error) {
-	mockArgs := emc.Called(append([]interface{}{commandName}, args...)...)
-	return mockArgs.Get(0), mockArgs.Error(1)
-}
-
-func setGetExFloat64InTransactionFunc(session cacheadapters.CacheSessionAdapter) error {
-	err := session.Set(testutil.TestKeyForSet, 2.5, nil)
-	if err != nil {
-		return err
-	}
-
-	err = session.Get(testutil.TestKeyForSet, nil)
-	if err != nil {
-		return err
-	}
-
-	err = session.SetTTL(testutil.TestKeyForSet, time.Second)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
 
 // startLocalRedisServer starts a local, in-memory redis instance for the tests.
 func startLocalRedisServer() {
@@ -123,14 +75,4 @@ func startLocalRedisServer() {
 // local, in-memory Redis instance.
 func stopLocalRedisServer() {
 	localRedisServer.Close()
-}
-
-// TestMain adds Global test setups and teardowns.
-func TestMain(m *testing.M) {
-	startLocalRedisServer()
-	defer stopLocalRedisServer()
-
-	code := m.Run()
-
-	os.Exit(code)
 }
