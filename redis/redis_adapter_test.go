@@ -26,7 +26,7 @@ import (
 
 func TestRedisAdapterSuite(t *testing.T) {
 	defaultTTL := 10 * time.Second
-	suite.Run(t, newRedisTestSuite(defaultTTL))
+	suite.Run(t, newRedisTestSuite(t, defaultTTL))
 }
 
 type RedisAdapterTestSuite struct {
@@ -34,32 +34,30 @@ type RedisAdapterTestSuite struct {
 	*testutil.CacheAdapterPartialTestSuite
 }
 
-// newRedisTestSuite creates a new test suite with tests for Redis adapters and sessions.
-func newRedisTestSuite(defaultTTL time.Duration) *RedisAdapterTestSuite {
-	var suite suite.Suite
-	newAdapter := func() (cacheadapters.CacheAdapter, error) {
+func newTestAdapterFunc(defaultTTL time.Duration) func() (cacheadapters.CacheAdapter, error) {
+	return func() (cacheadapters.CacheAdapter, error) {
 		return rediscacheadapters.New(testRedisPool, defaultTTL)
 	}
+}
 
-	newSession := func() (cacheadapters.CacheSessionAdapter, error) {
-		adapter, err := rediscacheadapters.New(testRedisPool, defaultTTL)
-		if err != nil {
-			panic(err)
-		}
-
-		return adapter.OpenSession()
+func testSleepFunc() func(time.Duration) {
+	return func(duration time.Duration) {
+		localRedisServer.FastForward(duration)
 	}
+}
+
+// newRedisTestSuite creates a new test suite with tests for Redis adapters and sessions.
+func newRedisTestSuite(t *testing.T, defaultTTL time.Duration) *RedisAdapterTestSuite {
+	var suite suite.Suite
 
 	return &RedisAdapterTestSuite{
 		Suite: &suite,
 		CacheAdapterPartialTestSuite: &testutil.CacheAdapterPartialTestSuite{
 			Suite:      &suite,
 			DefaultTTL: defaultTTL,
-			NewAdapter: newAdapter,
-			NewSession: newSession,
-			SleepFunc: func(duration time.Duration) {
-				localRedisServer.FastForward(duration)
-			},
+			NewAdapter: newTestAdapterFunc(defaultTTL),
+			NewSession: newTestSessionFunc(t, defaultTTL),
+			SleepFunc:  testSleepFunc(),
 		},
 	}
 }
