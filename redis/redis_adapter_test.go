@@ -66,7 +66,7 @@ func (suite *RedisAdapterTestSuite) SetupSuite() {
 	startLocalRedisServer()
 }
 
-func (Test *RedisAdapterTestSuite) TearDownSuite() {
+func (suite *RedisAdapterTestSuite) TearDownSuite() {
 	stopLocalRedisServer()
 }
 

@@ -17,58 +17,65 @@ package inmemorycacheadapters_test
 import (
 	"os"
 	"testing"
+	"time"
 
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
+	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 	inmemorycacheadapters "github.com/tryvium-travels/golang-cache-adapters/in_memory"
 	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
+
+type InMemoryAdapterTestSuite struct {
+	*suite.Suite
+	*testutil.CacheAdapterPartialTestSuite
+}
 
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestNewInMemoryCacheAdapterOK(t *testing.T) {
-	_, err := inmemorycacheadapters.New(testutil.DummyTTL)
-	require.NoError(t, err, "Should not give error on valid New")
+func testSleepFunc() func(time.Duration) {
+	return func(duration time.Duration) {
+		time.Sleep(duration)
+	}
 }
 
-func TestNewInMemoryCacheAdapterWithInvalidTTL(t *testing.T) {
-	_, err := inmemorycacheadapters.New(testutil.InvalidTTL)
-	require.Error(t, err, "Should give error on valid New with invalid TTL")
+func newTestAdapterFunc(defaultTTL time.Duration) func() (cacheadapters.CacheAdapter, error) {
+	return func() (cacheadapters.CacheAdapter, error) {
+		return inmemorycacheadapters.New(defaultTTL)
+	}
 }
 
-func TestNewInMemoryCacheAdapterWithInvalidTTLZero(t *testing.T) {
-	_, err := inmemorycacheadapters.New(testutil.ZeroTTL)
-	require.Error(t, err, "Should give error on valid New with zero TTL")
+func newTestSessionFunc(t *testing.T, defaultTTL time.Duration) func() (cacheadapters.CacheSessionAdapter, error) {
+	return func() (cacheadapters.CacheSessionAdapter, error) {
+		cacheAdapter, err := newTestAdapterFunc(defaultTTL)()
+		if err != nil {
+			t.Error(err)
+		}
+		return cacheAdapter.OpenSession()
+	}
 }
 
-func TestOpenCloseSessionOK(t *testing.T) {
-	adapter, _ := inmemorycacheadapters.New(testutil.DummyTTL)
-	session, _ := adapter.OpenSession()
+// newInMemoryTestSuite creates a new test suite with tests for Redis adapters and sessions.
+func newInMemoryTestSuite(t *testing.T, defaultTTL time.Duration) *InMemoryAdapterTestSuite {
+	var suite suite.Suite
 
-	err := session.Close()
-	require.NoError(t, err, "Should not error on closing an open session")
+	return &InMemoryAdapterTestSuite{
+		Suite: &suite,
+		CacheAdapterPartialTestSuite: &testutil.CacheAdapterPartialTestSuite{
+			Suite:      &suite,
+			DefaultTTL: defaultTTL,
+			NewAdapter: newTestAdapterFunc(defaultTTL),
+			NewSession: newTestSessionFunc(t, defaultTTL),
+			SleepFunc:  testSleepFunc(),
+		},
+	}
 }
 
-func TestSetGetOK(t *testing.T) {
-	adapter, _ := inmemorycacheadapters.New(testutil.DummyTTL)
-
-	err := adapter.Set(testutil.TestKeyForSet, testutil.TestValue, &testutil.DummyTTL)
-	require.NoError(t, err, "Should not error on valid set")
-
-	var actual testutil.TestStruct
-
-	err = adapter.Get(testutil.TestKeyForSet, &actual)
-	require.NoError(t, err, "Should not error on valid get")
-
-	require.EqualValues(t, testutil.TestValue, actual, "The value obatined with get should be equal to the test value set before")
+func (suite *InMemoryAdapterTestSuite) SetupSuite() {
+	// actually, nothing is required for the In-Memory Cache Adapter
 }
 
-func TestSetWithNonUnmarshalableReference(t *testing.T) {
-	adapter, _ := inmemorycacheadapters.New(testutil.DummyTTL)
-
-	var actual complex128
-
-	err := adapter.Get(testutil.TestKeyForSet, &actual)
-	require.Error(t, err, "Should error on non unmarshalable get")
+func (Test *InMemoryAdapterTestSuite) TearDownSuite() {
+	// actually, nothing is required for the In-Memory Cache Adapter
 }

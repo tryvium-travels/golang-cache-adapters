@@ -42,7 +42,7 @@ type InMemoryAdapter struct {
 }
 
 // New creates a new InMemoryAdapter from an default TTL.
-func New(defaultTTL time.Duration) (*InMemoryAdapter, error) {
+func New(defaultTTL time.Duration) (cacheadapters.CacheAdapter, error) {
 	if defaultTTL <= 0 {
 		return nil, cacheadapters.ErrInvalidTTL
 	}
@@ -56,7 +56,7 @@ func New(defaultTTL time.Duration) (*InMemoryAdapter, error) {
 // OpenSession opens a new Cache Session.
 // Returns the same adapter because the
 // session with the memory is always open.
-func (ima *InMemoryAdapter) OpenSession() (*InMemoryAdapter, error) {
+func (ima *InMemoryAdapter) OpenSession() (cacheadapters.CacheSessionAdapter, error) {
 	return ima, nil
 }
 
