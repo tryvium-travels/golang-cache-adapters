@@ -8,9 +8,7 @@
 
 # Cache Adapter implementation for In Memory
 
-A `CacheAdapter` implementation that allows to use a RAM-based memory.
-
-Beware that at the moment it has the [**github.com/gomodule/redigo**](github.com/gomodule/redigo) dependency
+A `CacheAdapter` implementation that allows to use a concurrent-safe map of objects with an expiration mechanism for the keys.
 
 ## Usage
 
