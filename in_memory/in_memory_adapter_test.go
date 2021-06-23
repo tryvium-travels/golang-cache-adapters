@@ -57,7 +57,7 @@ func newTestSessionFunc(t *testing.T, defaultTTL time.Duration) func() (cacheada
 	}
 }
 
-// newInMemoryTestSuite creates a new test suite with tests for Redis adapters and sessions.
+// newInMemoryTestSuite creates a new test suite with tests for In-Memory adapters and sessions.
 func newInMemoryTestSuite(t *testing.T, defaultTTL time.Duration) *InMemoryAdapterTestSuite {
 	var suite suite.Suite
 
@@ -81,7 +81,7 @@ func (Test *InMemoryAdapterTestSuite) TearDownSuite() {
 	// actually, nothing is required for the In-Memory Cache Adapter
 }
 
-func TestRedisAdapterSuite(t *testing.T) {
+func TestInMemoryAdapterSuite(t *testing.T) {
 	defaultTTL := 10 * time.Second
 	suite.Run(t, newInMemoryTestSuite(t, defaultTTL))
 }
@@ -135,7 +135,7 @@ func (suite *InMemoryAdapterTestSuite) TestDel_ErrMissing() {
 	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
 
 	err = adapter.Delete(testKeyForDeleteButInvalid)
-	suite.Require().Error(err, "Should error on delete with invalid key")
+	suite.Require().NoError(err, "Should not error on delete with non-existing key")
 }
 
 // test a subsequent Delete operation over the same key without Set between these two Delete.
@@ -157,6 +157,29 @@ func (suite *InMemoryAdapterTestSuite) TestDel_DoubleDel() {
 	suite.Require().NoError(err, "Should not error on valid Delete")
 
 	err = adapter.Delete(testutil.TestKeyForDelete)
-	suite.Require().Error(err, "Should error on subsequent Delete on the same key")
+	suite.Require().NoError(err, "Should not error on subsequent Delete on the same key solely by this")
+}
 
+func (suite *InMemoryAdapterTestSuite) TestTTL_SetDeleteExpires() {
+	adapter, _ := suite.NewAdapter()
+
+	duration := 250 * time.Millisecond
+
+	err := adapter.Set(testutil.TestKeyForSetTTL, testutil.TestValue, nil)
+	suite.Require().NoError(err, "Should not error on valid set")
+
+	err = adapter.SetTTL(testutil.TestKeyForSetTTL, duration)
+	suite.Require().NoError(err, "Should not error on valid SetTTL")
+
+	suite.SleepFunc(100 * time.Millisecond)
+
+	var actual testutil.TestStruct
+	err = adapter.Get(testutil.TestKeyForSetTTL, &actual)
+	suite.Require().Equal(testutil.TestValue, actual, "The value just set must be equal to the test value (is not expired)")
+	suite.Require().NoError(err, "Should not error on valid get (is not expired)")
+
+	suite.SleepFunc(200 * time.Millisecond)
+
+	err = adapter.Delete(testutil.TestKeyForSet)
+	suite.Require().NoError(err, "Should not error on Delete after expires since it makes no differences")
 }

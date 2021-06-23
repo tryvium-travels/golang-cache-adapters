@@ -86,6 +86,9 @@ func (ima *InMemoryAdapter) Get(key string, resultRef interface{}) error {
 
 	err := json.Unmarshal(valueFromMemory.item, resultRef)
 	if err != nil {
+		if resultRef == nil {
+			return cacheadapters.ErrGetRequiresObjectReference
+		}
 		return err
 	}
 
