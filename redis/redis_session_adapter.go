@@ -37,7 +37,7 @@ type RedisSessionAdapter struct {
 // an existing Redis connection.
 func NewSession(conn redis.Conn, defaultTTL time.Duration) (cacheadapters.CacheSessionAdapter, error) {
 	if conn == nil {
-		return nil, cacheadapters.ErrInvalidConnection
+		return nil, ErrInvalidConnection
 	}
 
 	if defaultTTL < 0 {
