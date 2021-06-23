@@ -15,6 +15,7 @@
 package inmemorycacheadapters_test
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -78,4 +79,84 @@ func (suite *InMemoryAdapterTestSuite) SetupSuite() {
 
 func (Test *InMemoryAdapterTestSuite) TearDownSuite() {
 	// actually, nothing is required for the In-Memory Cache Adapter
+}
+
+func TestRedisAdapterSuite(t *testing.T) {
+	defaultTTL := 10 * time.Second
+	suite.Run(t, newInMemoryTestSuite(t, defaultTTL))
+}
+
+func (suite *InMemoryAdapterTestSuite) TestNew_NegativeTTL() {
+	adapter, err := inmemorycacheadapters.New(-time.Second)
+	suite.Require().Nil(adapter, "Should be nil on negative time duration for TTL")
+	suite.Require().Error(err, "Should give error on negative time duration for TTL")
+}
+
+func (suite *InMemoryAdapterTestSuite) TestNew_InvalidTTL() {
+	adapter, err := inmemorycacheadapters.New(testutil.InvalidTTL)
+	suite.Require().Nil(adapter, "Should be nil on invalid time duration for TTL")
+	suite.Require().Error(err, "Should give error on invalid time duration for TTL")
+}
+
+func (suite *InMemoryAdapterTestSuite) TestNew_InvalidTTLZero() {
+	adapter, err := inmemorycacheadapters.New(testutil.ZeroTTL)
+	suite.Require().Nil(adapter, "Should be nil on zero time duration for TTL")
+	suite.Require().Error(err, "Should give error on zero time duration for TTL")
+}
+
+func (suite *InMemoryAdapterTestSuite) TestOpenCloseSessionOK() {
+	adapter, errAdapter := inmemorycacheadapters.New(testutil.DummyTTL)
+	session, errSession := adapter.OpenSession()
+
+	suite.Require().NoError(errAdapter, "Should give no error on creating an adapter")
+	suite.Require().NoError(errSession, "Should give no error on opening a session")
+
+	errClose := session.Close()
+	suite.Require().NoError(errClose, "Should not error on closing an open session")
+}
+
+func (suite *InMemoryAdapterTestSuite) TestSetGetOK() {
+	adapter, _ := inmemorycacheadapters.New(testutil.DummyTTL)
+
+	err := adapter.Set(testutil.TestKeyForSet, testutil.TestValue, &testutil.DummyTTL)
+	suite.Require().NoError(err, "Should not error on valid set")
+
+	var actual testutil.TestStruct
+
+	err = adapter.Get(testutil.TestKeyForSet, &actual)
+	suite.Require().NoError(err, "Should not error on valid get")
+
+	suite.Require().EqualValues(testutil.TestValue, actual, "The value obatined with get should be equal to the test value set before")
+}
+
+func (suite *InMemoryAdapterTestSuite) TestDel_ErrMissing() {
+	testKeyForDeleteButInvalid := fmt.Sprintf("%s:but-invalid", testutil.TestKeyForDelete)
+	adapter, err := inmemorycacheadapters.New(testutil.DummyTTL)
+	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
+
+	err = adapter.Delete(testKeyForDeleteButInvalid)
+	suite.Require().Error(err, "Should error on delete with invalid key")
+}
+
+// test a subsequent Delete operation over the same key without Set between these two Delete.
+// It differs from common/TestDelete_OK since it's the fail of the Delete operation
+// that is tested
+func (suite *InMemoryAdapterTestSuite) TestDel_DoubleDel() {
+	adapter, err := inmemorycacheadapters.New(testutil.DummyTTL)
+	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
+
+	err = adapter.Set(testutil.TestKeyForDelete, testutil.TestValue, nil)
+	suite.Require().NoError(err, "Should not error on valid set")
+
+	var actual testutil.TestStruct
+	err = adapter.Get(testutil.TestKeyForDelete, &actual)
+	suite.Require().Equal(testutil.TestValue, actual, "The value just set must be equal to the test value")
+	suite.Require().NoError(err, "Value should be valid, hence no error")
+
+	err = adapter.Delete(testutil.TestKeyForDelete)
+	suite.Require().NoError(err, "Should not error on valid Delete")
+
+	err = adapter.Delete(testutil.TestKeyForDelete)
+	suite.Require().Error(err, "Should error on subsequent Delete on the same key")
+
 }
