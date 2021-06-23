@@ -71,6 +71,10 @@ func (ima *InMemoryAdapter) Close() error {
 // Get obtains a value from the cache using a key, then tries to unmarshal
 // it into the object reference passed as parameter.
 func (ima *InMemoryAdapter) Get(key string, resultRef interface{}) error {
+	if resultRef == nil {
+		return cacheadapters.ErrGetRequiresObjectReference
+	}
+
 	ima.mutex.Lock()
 	valueFromMemory, exists := ima.data[key]
 	ima.mutex.Unlock()
@@ -79,16 +83,13 @@ func (ima *InMemoryAdapter) Get(key string, resultRef interface{}) error {
 	}
 
 	now := time.Now()
-	if valueFromMemory.expiresAt.Unix() < now.Unix() {
+	if valueFromMemory.expiresAt.UnixNano() < now.UnixNano() {
 		ima.Delete(key)
 		return cacheadapters.ErrNotFound
 	}
 
 	err := json.Unmarshal(valueFromMemory.item, resultRef)
 	if err != nil {
-		if resultRef == nil {
-			return cacheadapters.ErrGetRequiresObjectReference
-		}
 		return err
 	}
 
@@ -126,10 +127,7 @@ func (ima *InMemoryAdapter) Set(key string, object interface{}, TTL *time.Durati
 // SetTTL marks the specified key new expiration, deletes it via using
 // cacheadapters.TTLExpired or negative duration.
 func (ima *InMemoryAdapter) SetTTL(key string, newTTL time.Duration) error {
-	if newTTL < 0 {
-		return cacheadapters.ErrInvalidTTL
-	}
-	if newTTL == cacheadapters.TTLExpired {
+	if newTTL <= cacheadapters.TTLExpired {
 		return ima.Delete(key)
 	}
 
@@ -143,8 +141,8 @@ func (ima *InMemoryAdapter) SetTTL(key string, newTTL time.Duration) error {
 	now := time.Now()
 	newExpiresAt := now.Add(newTTL)
 
-	if valueFromMemory.expiresAt.Unix() < now.Unix() {
-		ima.Delete(key)
+	if valueFromMemory.expiresAt.UnixNano() < now.UnixNano() {
+		return ima.Delete(key)
 	}
 
 	valueFromMemory.expiresAt = newExpiresAt

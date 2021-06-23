@@ -138,7 +138,7 @@ func (suite *CacheAdapterPartialTestSuite) TestSessionSet_CheckTTL() {
 
 	var actual TestStruct
 	err = session.Get(TestKeyForSet, &actual)
-	suite.Require().Equal(err, cacheadapters.ErrNotFound, "Should not be found after expired")
+	suite.Require().ErrorIs(err, cacheadapters.ErrNotFound, "Should not be found after expired")
 }
 
 func (suite *CacheAdapterPartialTestSuite) TestSessionSetTTL_OK() {

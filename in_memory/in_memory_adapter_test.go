@@ -16,7 +16,6 @@ package inmemorycacheadapters_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -29,10 +28,6 @@ import (
 type InMemoryAdapterTestSuite struct {
 	*suite.Suite
 	*testutil.CacheAdapterPartialTestSuite
-}
-
-func TestMain(m *testing.M) {
-	os.Exit(m.Run())
 }
 
 func testSleepFunc() func(time.Duration) {
@@ -49,11 +44,8 @@ func newTestAdapterFunc(defaultTTL time.Duration) func() (cacheadapters.CacheAda
 
 func newTestSessionFunc(t *testing.T, defaultTTL time.Duration) func() (cacheadapters.CacheSessionAdapter, error) {
 	return func() (cacheadapters.CacheSessionAdapter, error) {
-		cacheAdapter, err := newTestAdapterFunc(defaultTTL)()
-		if err != nil {
-			t.Error(err)
-		}
-		return cacheAdapter.OpenSession()
+		adapter, err := inmemorycacheadapters.New(defaultTTL)
+		return adapter.(cacheadapters.CacheSessionAdapter), err
 	}
 }
 
@@ -73,16 +65,8 @@ func newInMemoryTestSuite(t *testing.T, defaultTTL time.Duration) *InMemoryAdapt
 	}
 }
 
-func (suite *InMemoryAdapterTestSuite) SetupSuite() {
-	// actually, nothing is required for the In-Memory Cache Adapter
-}
-
-func (Test *InMemoryAdapterTestSuite) TearDownSuite() {
-	// actually, nothing is required for the In-Memory Cache Adapter
-}
-
 func TestInMemoryAdapterSuite(t *testing.T) {
-	defaultTTL := 10 * time.Second
+	defaultTTL := 1 * time.Second
 	suite.Run(t, newInMemoryTestSuite(t, defaultTTL))
 }
 
@@ -180,6 +164,32 @@ func (suite *InMemoryAdapterTestSuite) TestTTL_SetDeleteExpires() {
 
 	suite.SleepFunc(200 * time.Millisecond)
 
-	err = adapter.Delete(testutil.TestKeyForSet)
+	err = adapter.Delete(testutil.TestKeyForSetTTL)
 	suite.Require().NoError(err, "Should not error on Delete after expires since it makes no differences")
+}
+
+func (suite *InMemoryAdapterTestSuite) TestTTL_SetNotExistingKey() {
+	adapter, err := suite.NewAdapter()
+	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
+	testKeyForSetDLLButInvalid := fmt.Sprintf("%s:but-invalid", testutil.TestKeyForSetTTL)
+
+	duration := new(time.Duration)
+	*duration = time.Millisecond * 250
+	err = adapter.SetTTL(testKeyForSetDLLButInvalid, *duration)
+	suite.Require().ErrorIs(err, cacheadapters.ErrNotFound, "Should error on set with not existing key")
+}
+
+func (suite *InMemoryAdapterTestSuite) TestTTL_SetOverExpired() {
+	adapter, err := suite.NewAdapter()
+	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
+
+	duration := new(time.Duration)
+	*duration = 50 * time.Millisecond
+	err = adapter.Set(testutil.TestKeyForSetTTL, testutil.TestValue, duration)
+	suite.Require().NoError(err, "Should not error on valid set")
+
+	suite.SleepFunc(100 * time.Millisecond)
+
+	err = adapter.SetTTL(testutil.TestKeyForSetTTL, (*duration)*2)
+	suite.Require().ErrorIs(err, nil, "Should not error on setting TTL over expired key, since it's removed")
 }
