@@ -173,7 +173,7 @@ func (suite *CacheAdapterPartialTestSuite) TestSessionSetTTL_NegativeTTL() {
 	invalidDuration := -time.Second
 
 	err := session.SetTTL(TestKeyForSetTTL, invalidDuration)
-	suite.Require().Error(err, "Should error on invalid set with invalid TTL")
+	suite.Require().NoError(err, "Should not error on invalid set with invalid TTL, but should delete")
 
 	var actual TestStruct
 	err = session.Get(TestKeyForSetTTL, &actual)
