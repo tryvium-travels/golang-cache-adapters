@@ -25,6 +25,8 @@ import (
 	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
 
+// InMemoryAdapterTestSuite contains all methods to run tests in a
+// isolated suite.
 type InMemoryAdapterTestSuite struct {
 	*suite.Suite
 	*testutil.CacheAdapterPartialTestSuite
