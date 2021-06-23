@@ -25,7 +25,7 @@ import (
 )
 
 func TestRedisAdapterSuite(t *testing.T) {
-	defaultTTL := 10 * time.Second
+	defaultTTL := 1 * time.Second
 	suite.Run(t, newRedisTestSuite(t, defaultTTL))
 }
 
@@ -66,7 +66,7 @@ func (suite *RedisAdapterTestSuite) SetupSuite() {
 	startLocalRedisServer()
 }
 
-func (Test *RedisAdapterTestSuite) TearDownSuite() {
+func (suite *RedisAdapterTestSuite) TearDownSuite() {
 	stopLocalRedisServer()
 }
 

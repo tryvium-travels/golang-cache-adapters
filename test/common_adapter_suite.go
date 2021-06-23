@@ -96,7 +96,7 @@ func (suite *CacheAdapterPartialTestSuite) TestGet_NilReference() {
 	suite.Require().NoError(err, "Should perform the Set in order to test the Get")
 
 	err = adapter.Get(TestKeyForGet, nil)
-	suite.Require().ErrorIs(cacheadapters.ErrGetRequiresObjectReference, err, "Should return ErrGetRequiresObjectReference on nil object reference")
+	suite.Require().ErrorIs(err, cacheadapters.ErrGetRequiresObjectReference, "Should return ErrGetRequiresObjectReference on nil object reference")
 }
 
 func (suite *CacheAdapterPartialTestSuite) TestGet_NonUnmarshalableReference() {
@@ -178,7 +178,7 @@ func (suite *CacheAdapterPartialTestSuite) TestSet_CheckTTL() {
 
 	var actual TestStruct
 	err = adapter.Get(TestKeyForSet, &actual)
-	suite.Require().Equal(cacheadapters.ErrNotFound, err, "Should not be found after expired")
+	suite.Require().ErrorIs(err, cacheadapters.ErrNotFound, "Should not be found after expired")
 }
 
 func (suite *CacheAdapterPartialTestSuite) TestSetTTL_OK() {
@@ -201,8 +201,8 @@ func (suite *CacheAdapterPartialTestSuite) TestSetTTL_OK() {
 
 	suite.SleepFunc(200 * time.Millisecond)
 
-	err = adapter.Get(TestKeyForSet, &actual)
-	suite.Require().ErrorIs(cacheadapters.ErrNotFound, err, "Should not be found after expired")
+	err = adapter.Get(TestKeyForSetTTL, &actual)
+	suite.Require().ErrorIs(err, cacheadapters.ErrNotFound, "Should not be found after expired")
 }
 
 func (suite *CacheAdapterPartialTestSuite) TestSetTTL_NegativeTTL() {
@@ -215,7 +215,7 @@ func (suite *CacheAdapterPartialTestSuite) TestSetTTL_NegativeTTL() {
 
 	var actual TestStruct
 	err = adapter.Get(TestKeyForSetTTL, &actual)
-	suite.Require().ErrorIs(cacheadapters.ErrNotFound, err, "Should not be found after expired (invalidTTL in SetTTL operation)")
+	suite.Require().ErrorIs(err, cacheadapters.ErrNotFound, "Should not be found after expired (invalidTTL in SetTTL operation)")
 }
 
 func (suite *CacheAdapterPartialTestSuite) TestSetTTL_CheckTTL() {
@@ -238,7 +238,7 @@ func (suite *CacheAdapterPartialTestSuite) TestSetTTL_CheckTTL() {
 	suite.SleepFunc(*duration)
 
 	err = adapter.Get(TestKeyForSet, &actual)
-	suite.Require().ErrorIs(cacheadapters.ErrNotFound, err, "Should not be found after expired")
+	suite.Require().ErrorIs(err, cacheadapters.ErrNotFound, "Should not be found after expired")
 }
 
 func (suite *CacheAdapterPartialTestSuite) TestDelete_OK() {
@@ -256,7 +256,7 @@ func (suite *CacheAdapterPartialTestSuite) TestDelete_OK() {
 	suite.Require().NoError(err, "Should not error on valid Delete")
 
 	err = adapter.Get(TestKeyForDelete, &actual)
-	suite.Require().ErrorIs(cacheadapters.ErrNotFound, err, "Should not be found after deleted")
+	suite.Require().ErrorIs(err, cacheadapters.ErrNotFound, "Should not be found after deleted")
 }
 
 func (suite *CacheAdapterPartialTestSuite) TestOpenSession_OK() {

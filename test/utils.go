@@ -1,5 +1,7 @@
 package testutil
 
+import "time"
+
 var (
 	TestKeyForGet    = "test:key:for-get:1234"     // The test key used to test the Get operations
 	TestKeyForSet    = "test:key:for-set:1234"     // The test key used to test the Set operations
@@ -14,3 +16,16 @@ var (
 type TestStruct struct {
 	Value string `json:"value"`
 }
+
+var (
+	// DummyTTL represents a dummy TTL to put in
+	// test operations when needed.
+	DummyTTL time.Duration = time.Second
+	// InvalidTTL represents a dummy TTL to put in
+	// test operations when needed.
+	InvalidTTL time.Duration = -time.Second
+	// ZeroTTL represents a dummy TTL initialized to
+	// a zero value to put in test operations when
+	// needed.
+	ZeroTTL time.Duration = 0
+)
