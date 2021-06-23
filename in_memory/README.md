@@ -19,5 +19,42 @@ Please refer to the following example for the correct usage:
 ``` go
 package main
 
-TODO
+import (
+	"log"
+	"time"
+
+	inmemorycacheadapters "github.com/tryvium-travels/golang-cache-adapters/in_memory"
+)
+
+func main() {
+	exampleTTL := time.Hour
+
+	adapter, err := inmemorycacheadapters.New(exampleTTL)
+	if err != nil {
+		// remember to check for errors
+		log.Fatalf("Adapter initialization error: %s", err)
+	}
+
+	type exampleStruct struct {
+		Value string
+	}
+
+	exampleKey := "a:in_memory:key"
+
+	var exampleValue exampleStruct
+	err = adapter.Get(exampleKey, &exampleValue)
+	if err != nil {
+		// remember to check for errors
+		log.Fatalf("adapter.Get error: %s", err)
+	}
+
+	exampleKey = "another:in_memory:key"
+
+	// nil TTL represents the default value put in the New function
+	err = adapter.Set(exampleKey, exampleValue, nil)
+	if err != nil {
+		// remember to check for errors
+		log.Fatalf("adapter.Get error: %s", err)
+	}
+}
 ```
