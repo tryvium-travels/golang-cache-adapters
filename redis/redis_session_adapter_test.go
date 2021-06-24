@@ -48,7 +48,7 @@ func (suite *RedisAdapterTestSuite) initCustomConnection() redis.Conn {
 func (suite *RedisAdapterTestSuite) TestNewSession_NilConnection() {
 	session, err := rediscacheadapters.NewSession(nil, time.Second)
 	suite.Require().Nil(session, "Should be nil if I pass a nil redis connection")
-	suite.Require().Equal(cacheadapters.ErrInvalidConnection, err, "Should give error on nil redis connection")
+	suite.Require().Equal(rediscacheadapters.ErrInvalidConnection, err, "Should give error on nil redis connection")
 }
 
 func (suite *RedisAdapterTestSuite) TestNewSession_NegativeDuration() {

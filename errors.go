@@ -17,11 +17,6 @@ package cacheadapters
 import "fmt"
 
 var (
-	// ErrNilSubAdapter will come out if you try to pass a nil sub-adapter when creating
-	// a new MultiCacheAdapter.
-	ErrNilSubAdapter = fmt.Errorf("cannot pass a nil sub-adapter to NewMultiCacheAdapter")
-	//ErrInvalidConnection will come out if you try to use an invalid connection in a session.
-	ErrInvalidConnection = fmt.Errorf("cannot use an invalid connection")
 	// ErrNotFound will come out if a key is not found in the cache.
 	ErrNotFound = fmt.Errorf("the value tried to get has not been found, check if it may be expired")
 	// ErrGetRequiresObjectReference will come out if a nil object
@@ -30,12 +25,6 @@ var (
 	// ErrInvalidTTL will come out if you try to set a zero-or-negative
 	// TTL in a Set operation.
 	ErrInvalidTTL = fmt.Errorf("cannot provide a negative TTL to Set operations")
-	// ErrSessionNotOpen will come out if you attempt to perform any function
-	// when the session is not opened yet or is already closed.
-	ErrSessionNotOpen = fmt.Errorf("the session is not opened yet or is closed, it cannot be used")
-	// ErrConnectionAlreadyOpen will come out if you try to open an already
-	// open session.
-	ErrSessionAlreadyOpen = fmt.Errorf("the session is already open, cannot be re-opened")
 	// errNotImplemented will come out if you are a bad dev and you did
 	// not implement the method which returns this error. You should see this error
 	// only during development.
