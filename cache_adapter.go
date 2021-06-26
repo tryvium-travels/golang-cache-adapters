@@ -18,11 +18,8 @@ import (
 	"time"
 )
 
+// TTLExpired represents the zero-value of a time expiration.
 const TTLExpired time.Duration = 0
-
-// InTransactionFunc is a function executed inside an InTransaction calls
-// of CacheAdapter and CacheSessionAdapter objects.
-type InTransactionFunc func(adapter CacheSessionAdapter) error
 
 // CacheAdapter represents a Cache Mechanism abstraction.
 type CacheAdapter interface {
