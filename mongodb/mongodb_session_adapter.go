@@ -147,7 +147,7 @@ func (msa *MongoDBSessionAdapter) SetTTL(key string, newTTL time.Duration) error
 	filter := bson.M{"key": key}
 	update := bson.M{
 		"$set": bson.M{
-			"expires_at": result.ExpiresAt.UnixNano(),
+			"expires_at": result.ExpiresAt,
 		},
 	}
 	_, err = msa.collection.UpdateOne(context.Background(), filter, update)
