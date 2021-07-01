@@ -50,8 +50,6 @@ func (suite *MultiCacheSessionAdapterTestSuite) TestNewNoAdapters() {
 	suite.ErrorIs(err, multicacheadapters.ErrInvalidSubAdapters, "Should give ErrNilSubadapter on New without adapters")
 }
 
-// Make sure that VariableThatShouldStartAtFive is set to five
-// before each test
 func (suite *MultiCacheAdapterTestSuite) SetupTest() {
 	suite.firstDummyAdapter = newmockMultiCacheAdapter()
 	suite.secondDummyAdapter = newmockMultiCacheAdapter()
