@@ -62,6 +62,36 @@ func testSleepFunc() func(time.Duration) {
 	}
 }
 
+func newTestSessionFunc(t *testing.T, defaultTTL time.Duration) func() (cacheadapters.CacheSessionAdapter, error) {
+	return func() (cacheadapters.CacheSessionAdapter, error) {
+		mongoClient, err := mongo.Connect(context.Background(), options.Client().ApplyURI(localMongoDBServer.URI()))
+		if err != nil {
+			panic(err)
+		}
+
+		mongoSession, err := mongoClient.StartSession()
+		if err != nil {
+			return nil, err
+		}
+
+		database := mongoClient.Database(testDatabase)
+		if database == nil {
+			return nil, mongodbcacheadapters.ErrNilDatabase
+		}
+
+		collection := database.Collection(testCollection)
+		if collection == nil {
+			return nil, mongodbcacheadapters.ErrNilCollection
+		}
+
+		sessionAdapter, err := mongodbcacheadapters.NewSession(&mongoSession, collection, defaultTTL)
+		if err != nil {
+			return nil, err
+		}
+		return sessionAdapter, nil
+	}
+}
+
 // newMongoDBTestSuite creates a new test suite with tests for MongoDB adapters and sessions.
 func newMongoDBTestSuite(t *testing.T, defaultTTL time.Duration) *MongoDBTestSuite {
 	var suite suite.Suite
@@ -72,8 +102,8 @@ func newMongoDBTestSuite(t *testing.T, defaultTTL time.Duration) *MongoDBTestSui
 			Suite:      &suite,
 			DefaultTTL: defaultTTL,
 			NewAdapter: newTestAdapterFunc(defaultTTL),
-			//NewSession: newTestSessionFunc(t, defaultTTL),
-			SleepFunc: testSleepFunc(),
+			NewSession: newTestSessionFunc(t, defaultTTL),
+			SleepFunc:  testSleepFunc(),
 		},
 	}
 }

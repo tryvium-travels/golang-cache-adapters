@@ -30,22 +30,23 @@ const (
 )
 
 var (
-	localMongoDBServer     *memongo.Server
-	clientMongoDB          *mongo.Client  = nil
-	invalidClientMongoDB   *mongo.Client  = nil
-	closeFuncMongoDBClient ctx.CancelFunc = nil
-	testKeyIndexModel                     = mongo.IndexModel{
-		//Name: "test_cache_index_key",
+	testCacheIndexKeyName string = "test_cache_index_key"
+	testCacheIndexTTLName string = "test_cache_index_ttl"
+	localMongoDBServer    *memongo.Server
+	testKeyIndexModel     = mongo.IndexModel{
 		Keys: map[string]string{
 			"key": "hashed",
 		},
+		Options: &options.IndexOptions{
+			Name: &testCacheIndexKeyName,
+		},
 	}
 	testTTLIndexModel = mongo.IndexModel{
-		//Name: "test_cache_index_ttl",
 		Keys: map[string]byte{
 			"expires_at": 1,
 		},
 		Options: &options.IndexOptions{
+			Name:               &testCacheIndexTTLName,
 			ExpireAfterSeconds: new(int32), // default value 0, because expires after 0 seconds after the expiration time.
 		},
 	}
