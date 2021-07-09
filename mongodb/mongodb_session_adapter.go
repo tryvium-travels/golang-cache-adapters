@@ -16,7 +16,6 @@ package mongodbcacheadapters
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
@@ -26,7 +25,7 @@ import (
 )
 
 type MongoDBSessionAdapter struct {
-	session    *mongo.Session    // The MongoDB session connected to this adapter.
+	session    mongo.Session     // The MongoDB session connected to this adapter.
 	collection *mongo.Collection // The used MongoDB collection.
 	defaultTTL time.Duration     // The defaultTTL of the Set operations.
 }
@@ -38,7 +37,7 @@ type cacheItem struct {
 }
 
 // NesSession create a new MongoDB Session adapter
-func NewSession(session *mongo.Session, collection *mongo.Collection, defaultTTL time.Duration) (cacheadapters.CacheSessionAdapter, error) {
+func NewSession(session mongo.Session, collection *mongo.Collection, defaultTTL time.Duration) (cacheadapters.CacheSessionAdapter, error) {
 	if session == nil {
 		return nil, ErrNilSession
 	}
@@ -58,10 +57,10 @@ func NewSession(session *mongo.Session, collection *mongo.Collection, defaultTTL
 	}, nil
 }
 
-// Get obtains a value from the cache using a key, then tries to unmarshal
-// it into the object reference passed as parameter.
+// Close closes the Cache Session.
 func (msa *MongoDBSessionAdapter) Close() error {
-	return fmt.Errorf("TODO: CLOSE not yet implemented in MongoDB Session Adapter")
+	msa.session.EndSession(context.Background())
+	return nil
 }
 
 func (msa *MongoDBSessionAdapter) Get(key string, objectRef interface{}) error {

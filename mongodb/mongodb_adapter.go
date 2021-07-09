@@ -37,7 +37,13 @@ func New(client *mongo.Client, databaseName string, collectionName string, defau
 		return nil, ErrNilClient
 	}
 
-	if strings.TrimSpace(collectionName) == "" {
+	databaseName = strings.TrimSpace(databaseName)
+	if databaseName == "" {
+		return nil, InvalidDatabase
+	}
+
+	collectionName = strings.TrimSpace(collectionName)
+	if collectionName == "" {
 		return nil, InvalidCollection
 	}
 
@@ -54,22 +60,22 @@ func New(client *mongo.Client, databaseName string, collectionName string, defau
 }
 
 func (ma *MongoDBAdapter) OpenSession() (cacheadapters.CacheSessionAdapter, error) {
-	session, err := ma.client.StartSession()
+	mongoSession, err := ma.client.StartSession()
 	if err != nil {
 		return nil, err
 	}
 
-	database := ma.client.Database(ma.databaseName)
-	if database == nil {
+	mongoDatabase := ma.client.Database(ma.databaseName)
+	if mongoDatabase == nil {
 		return nil, ErrNilDatabase
 	}
 
-	collection := database.Collection(ma.collectionName)
-	if collection == nil {
+	mongoCollection := mongoDatabase.Collection(ma.collectionName)
+	if mongoCollection == nil {
 		return nil, ErrNilCollection
 	}
 
-	return NewSession(&session, collection, ma.defaultTTL)
+	return NewSession(mongoSession, mongoCollection, ma.defaultTTL)
 }
 
 // Get obtains a value from the cache using a key, then tries to unmarshal

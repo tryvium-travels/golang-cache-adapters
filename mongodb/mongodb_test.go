@@ -16,6 +16,7 @@ package mongodbcacheadapters_test
 
 import (
 	ctx "context"
+	"time"
 
 	mongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -24,9 +25,10 @@ import (
 )
 
 const (
-	mongoDBVersion string = "4.4.0"
-	testDatabase   string = "test_database"
-	testCollection string = "test_collection"
+	mongoDBVersion string        = "4.4.0"
+	testDatabase   string        = "test_database"
+	testCollection string        = "test_collection"
+	testDefaultTTL time.Duration = time.Millisecond * 50
 )
 
 var (
@@ -62,8 +64,12 @@ func startLocalMongoDBServer() {
 	createTestCollectionAndIndex()
 }
 
+func newMongoDBClient() (*mongo.Client, error) {
+	return mongo.Connect(ctx.Background(), options.Client().ApplyURI(localMongoDBServer.URI()))
+}
+
 func createTestCollectionAndIndex() {
-	client, err := mongo.Connect(ctx.Background(), options.Client().ApplyURI(localMongoDBServer.URI()))
+	client, err := newMongoDBClient()
 	if err != nil {
 		panic(err)
 	}
