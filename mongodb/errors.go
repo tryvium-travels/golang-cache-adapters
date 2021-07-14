@@ -1,4 +1,4 @@
-// Copyright 2021 The Tryvium Company LTD
+// Copyright 2021 Tryvium Travels LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,14 @@ var (
 	//ErrNilClient will come out if you try to create a CacheAdapter instance
 	// when providing a nil MongoDB Client instance
 	ErrNilClient = fmt.Errorf("cannot create the adapter with nil MongoDB Client instance")
+
+	//ErrInvalidDatabaseName will come out if you try to create a CacheAdapter instance
+	// when providing an invalid MongoDB Database name
+	ErrInvalidDatabaseName = fmt.Errorf("cannot create the adapter with invalid MongoDB Database name")
+
+	//ErrInvalidCollectionName will come out if you try to create a CacheAdapter instance
+	// when providing an invalid MongoDB Collection name
+	ErrInvalidCollectionName = fmt.Errorf("cannot create the adapter with invalid MongoDB Collection name")
 
 	//ErrNilDatabase will come out if you try to create a CacheAdapter instance
 	// when providing a nil MongoDB Database instance

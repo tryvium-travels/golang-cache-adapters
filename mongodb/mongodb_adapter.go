@@ -1,4 +1,4 @@
-// Copyright 2021 The Tryvium Company LTD
+// Copyright 2021 Tryvium Travels LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,16 @@
 package mongodbcacheadapters
 
 import (
+	ctx "context"
 	"strings"
 	"time"
 
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 	mongo "go.mongodb.org/mongo-driver/mongo"
+)
+
+var (
+	isDevelop bool = true
 )
 
 type MongoDBAdapter struct {
@@ -37,14 +42,20 @@ func New(client *mongo.Client, databaseName string, collectionName string, defau
 		return nil, ErrNilClient
 	}
 
+	if isDevelop {
+		if err := client.Ping(ctx.TODO(), nil); err != nil {
+			return nil, ErrSessionClosed
+		}
+	}
+
 	databaseName = strings.TrimSpace(databaseName)
 	if databaseName == "" {
-		return nil, InvalidDatabase
+		return nil, ErrInvalidDatabaseName
 	}
 
 	collectionName = strings.TrimSpace(collectionName)
 	if collectionName == "" {
-		return nil, InvalidCollection
+		return nil, ErrInvalidCollectionName
 	}
 
 	if defaultTTL <= 0 {
@@ -60,20 +71,18 @@ func New(client *mongo.Client, databaseName string, collectionName string, defau
 }
 
 func (ma *MongoDBAdapter) OpenSession() (cacheadapters.CacheSessionAdapter, error) {
+	if isDevelop {
+		if err := ma.client.Ping(ctx.Background(), nil); err != nil {
+			return nil, ErrSessionClosed
+		}
+	}
 	mongoSession, err := ma.client.StartSession()
 	if err != nil {
 		return nil, err
 	}
 
 	mongoDatabase := ma.client.Database(ma.databaseName)
-	if mongoDatabase == nil {
-		return nil, ErrNilDatabase
-	}
-
 	mongoCollection := mongoDatabase.Collection(ma.collectionName)
-	if mongoCollection == nil {
-		return nil, ErrNilCollection
-	}
 
 	return NewSession(mongoSession, mongoCollection, ma.defaultTTL)
 }

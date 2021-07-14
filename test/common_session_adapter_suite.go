@@ -1,4 +1,4 @@
-// Copyright 2021 The Tryvium Company LTD
+// Copyright 2021 Tryvium Travels LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance _ the License.
@@ -170,10 +170,10 @@ func (suite *CacheAdapterPartialTestSuite) TestSessionSetTTL_NegativeTTL() {
 	session, _ := suite.NewSession()
 	defer session.Close()
 
-	invalidDuration := -time.Second
+	negativeDuration := -time.Second
 
-	err := session.SetTTL(TestKeyForSetTTL, invalidDuration)
-	suite.Require().NoError(err, "Should not error on invalid set with invalid TTL, but should delete")
+	err := session.SetTTL(TestKeyForSetTTL, negativeDuration)
+	suite.Require().NoError(err, "Should not error on setTTL with negative TTL")
 
 	var actual TestStruct
 	err = session.Get(TestKeyForSetTTL, &actual)

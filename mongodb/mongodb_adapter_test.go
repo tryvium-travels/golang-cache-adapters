@@ -1,4 +1,4 @@
-// Copyright 2021 The Tryvium Company LTD
+// Copyright 2021 Tryvium Travels LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -116,517 +116,93 @@ func (suite *MongoDBAdapterTestSuite) TestNew_NilClient() {
 }
 
 func (suite *MongoDBAdapterTestSuite) TestNew_InvalidClient() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
+	mockClient := newMockMongoClientAdapter()
 
-	err = client.Disconnect(context.Background())
+	suite.Require().NotNil(mockClient, "Should instantiate a valid mongo client")
+
+	err := mockClient.Disconnect(context.Background())
 	suite.Require().NoError(err, "Should not give error on disconnecting a mongo client since no operations has been performed after the connection")
 
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testDefaultTTL)
+	adapter, err := mongodbcacheadapters.New(mockClient.Client, testDatabase, testCollection, testDefaultTTL)
 	suite.Require().Nil(adapter, "Should be nil on invalid (disconnected) mongo client")
 	suite.Require().Error(err, "Should give error on invalid (disconnected) mongo client")
 }
 
 func (suite *MongoDBAdapterTestSuite) TestNew_InvalidDatabase() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-	testDatabaseNameButInvalid := fmt.Sprintf("%s:but-invalid", testDatabase)
+	mockClient := newMockMongoClientAdapter()
 
-	adapter, err := mongodbcacheadapters.New(client, testDatabaseNameButInvalid, testCollection, testutil.DummyTTL)
+	suite.Require().NotNil(mockClient, "Should instantiate a valid mongo client")
+	testDatabaseNameButInvalid := "" // fmt.Sprintf("%s:but-invalid", testDatabase)
+
+	adapter, err := mongodbcacheadapters.New(mockClient.Client, testDatabaseNameButInvalid, testCollection, testutil.DummyTTL)
+	suite.Require().Nil(adapter, "Should be nil on invalid database name")
+	suite.Require().Error(err, "Should give error on invalid database name")
+}
+
+func (suite *MongoDBAdapterTestSuite) TestNew_EmptyDatabaseName() {
+	mockClient := newMockMongoClientAdapter()
+
+	suite.Require().NotNil(mockClient, "Should instantiate a valid mongo client")
+	testDatabaseNameButEmpty := " "
+
+	adapter, err := mongodbcacheadapters.New(mockClient.Client, testDatabaseNameButEmpty, testCollection, testutil.DummyTTL)
 	suite.Require().Nil(adapter, "Should be nil on invalid database name")
 	suite.Require().Error(err, "Should give error on invalid database name")
 }
 
 func (suite *MongoDBAdapterTestSuite) TestNew_InvalidCollection() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-	testCollectionNameButInvalid := fmt.Sprintf("%s:but-invalid", testCollection)
+	mockClient := newMockMongoClientAdapter()
 
-	adapter, err := mongodbcacheadapters.New(client, testCollectionNameButInvalid, testCollection, testutil.DummyTTL)
+	suite.Require().NotNil(mockClient, "Should instantiate a valid mongo client")
+	testCollectionNameButInvalid := "" // fmt.Sprintf("%s:but-invalid", testCollection)
+
+	adapter, err := mongodbcacheadapters.New(mockClient.Client, testCollectionNameButInvalid, testCollection, testutil.DummyTTL)
+	suite.Require().Nil(adapter, "Should be nil on invalid collection name")
+	suite.Require().Error(err, "Should give error on invalid collection name")
+}
+
+func (suite *MongoDBAdapterTestSuite) TestNew_EmptyCollectionName() {
+	mockClient := newMockMongoClientAdapter()
+
+	suite.Require().NotNil(mockClient, "Should instantiate a valid mongo client")
+	testCollectionNameButEmpty := " "
+
+	adapter, err := mongodbcacheadapters.New(mockClient.Client, testCollectionNameButEmpty, testCollection, testutil.DummyTTL)
 	suite.Require().Nil(adapter, "Should be nil on invalid collection name")
 	suite.Require().Error(err, "Should give error on invalid collection name")
 }
 
 func (suite *MongoDBAdapterTestSuite) TestNew_ZeroTTL() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
+	mockClient := newMockMongoClientAdapter()
 
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.ZeroTTL)
+	suite.Require().NotNil(mockClient, "Should instantiate a valid mongo client")
+
+	adapter, err := mongodbcacheadapters.New(mockClient.Client, testDatabase, testCollection, testutil.ZeroTTL)
 	suite.Require().Nil(adapter, "Should be nil on zero TTL")
 	suite.Require().Error(err, "Should give error on zero TTL")
 }
 
 func (suite *MongoDBAdapterTestSuite) TestNew_InvalidTTL() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
+	mockClient := newMockMongoClientAdapter()
 
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.InvalidTTL)
+	suite.Require().NotNil(mockClient, "Should instantiate a valid mongo client")
+
+	adapter, err := mongodbcacheadapters.New(mockClient.Client, testDatabase, testCollection, testutil.InvalidTTL)
 	suite.Require().Nil(adapter, "Should be nil on invalid TTL")
 	suite.Require().Error(err, "Should give error on invalid TTL")
 }
 
-// ---------------------------------------------------------------------
-
-func (suite *MongoDBAdapterTestSuite) TestOpenSession_NilClient() {
-	adapter, err := mongodbcacheadapters.New(nil, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().Nil(adapter, "Should be nil on nil mongo client")
-	suite.Require().Error(err, "Should give error on nil mongo client")
+func (suite *MongoDBAdapterTestSuite) TestOpenSessionOK() {
+	adapter, err := suite.NewAdapter()
+	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
 
 	sessionAdapter, err := adapter.OpenSession()
 
-	suite.Require().Nil(sessionAdapter, "Should be nil on nil client")
-	suite.Require().Error(err, "Should error on nil client")
-
+	suite.Require().NoError(err, "Should not give error on valid adapter")
+	suite.Require().NotNil(sessionAdapter, "Should not be nil on valid adapter")
 }
-
-func (suite *MongoDBAdapterTestSuite) TestOpenSession_InvalidClient() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	err = client.Disconnect(context.Background())
-	suite.Require().NoError(err, "Should not give error on disconnecting a mongo client since no operations has been performed after the connection")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid (disconnected) mongo client")
-	suite.Require().Error(err, "Should give error on invalid (disconnected) mongo client")
-
-	sessionAdapter, err := adapter.OpenSession()
-
-	suite.Require().Nil(sessionAdapter, "Should be nil on invalid client")
-	suite.Require().Error(err, "Should error on invalid client")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestOpenSession_InvalidDatabase() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-	testDatabaseNameButInvalid := fmt.Sprintf("%s:but-invalid", testDatabase)
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabaseNameButInvalid, testCollection, testutil.DummyTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid database name")
-	suite.Require().Error(err, "Should give error on invalid database name")
-
-	sessionAdapter, err := adapter.OpenSession()
-
-	suite.Require().Nil(sessionAdapter, "Should be nil on invalid database name")
-	suite.Require().Error(err, "Should error on invalid database name")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestOpenSession_InvalidCollection() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-	testCollectionNameButInvalid := fmt.Sprintf("%s:but-invalid", testCollection)
-
-	adapter, err := mongodbcacheadapters.New(client, testCollectionNameButInvalid, testCollection, testutil.DummyTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid collection name")
-	suite.Require().Error(err, "Should give error on invalid collection name")
-
-	sessionAdapter, err := adapter.OpenSession()
-
-	suite.Require().Nil(sessionAdapter, "Should be nil on invalid collection name")
-	suite.Require().Error(err, "Should error on invalid collection name")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestOpenSession_ZeroTTL() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.ZeroTTL)
-	suite.Require().Nil(adapter, "Should be nil on zero TTL")
-	suite.Require().Error(err, "Should give error on zero TTL")
-
-	sessionAdapter, err := adapter.OpenSession()
-
-	suite.Require().Nil(sessionAdapter, "Should be nil on zero TTL")
-	suite.Require().Error(err, "Should error on zero TTL")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestOpenSession_InvalidTTL() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.InvalidTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid TTL")
-	suite.Require().Error(err, "Should give error on invalid TTL")
-
-	sessionAdapter, err := adapter.OpenSession()
-
-	suite.Require().Nil(sessionAdapter, "Should be nil on invalid TTL")
-	suite.Require().Error(err, "Should error on invalid TTL")
-}
-
-// ---------------------------------------------------------------------
-
-func (suite *MongoDBAdapterTestSuite) TestGet_NilClient() {
-	adapter, err := mongodbcacheadapters.New(nil, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().Nil(adapter, "Should be nil on nil mongo client")
-	suite.Require().Error(err, "Should give error on nil mongo client")
-
-	var actual testutil.TestStruct
-	err = adapter.Get(testutil.TestKeyForGet, &actual)
-
-	suite.Require().Equal(testutil.TestStruct{}, actual, "Actual should remain empty since the adapter is invalid")
-	suite.Require().Error(err, "Should error since the adapter is invalid")
-
-}
-
-func (suite *MongoDBAdapterTestSuite) TestGet_InvalidClient() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	err = client.Disconnect(context.Background())
-	suite.Require().NoError(err, "Should not give error on disconnecting a mongo client since no operations has been performed after the connection")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid (disconnected) mongo client")
-	suite.Require().Error(err, "Should give error on invalid (disconnected) mongo client")
-
-	var actual testutil.TestStruct
-	err = adapter.Get(testutil.TestKeyForGet, &actual)
-
-	suite.Require().Equal(testutil.TestStruct{}, actual, "Actual should remain empty since the adapter is invalid")
-	suite.Require().Error(err, "Should error since the adapter is invalid")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestGet_InvalidDatabase() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-	testDatabaseNameButInvalid := fmt.Sprintf("%s:but-invalid", testDatabase)
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabaseNameButInvalid, testCollection, testutil.DummyTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid database name")
-	suite.Require().Error(err, "Should give error on invalid database name")
-
-	var actual testutil.TestStruct
-	err = adapter.Get(testutil.TestKeyForGet, &actual)
-
-	suite.Require().Equal(testutil.TestStruct{}, actual, "Actual should remain empty since the adapter is invalid")
-	suite.Require().Error(err, "Should error since the adapter is invalid")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestGet_InvalidCollection() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-	testCollectionNameButInvalid := fmt.Sprintf("%s:but-invalid", testCollection)
-
-	adapter, err := mongodbcacheadapters.New(client, testCollectionNameButInvalid, testCollection, testutil.DummyTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid collection name")
-	suite.Require().Error(err, "Should give error on invalid collection name")
-
-	var actual testutil.TestStruct
-	err = adapter.Get(testutil.TestKeyForGet, &actual)
-
-	suite.Require().Equal(testutil.TestStruct{}, actual, "Actual should remain empty since the adapter is invalid")
-	suite.Require().Error(err, "Should error since the adapter is invalid")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestGet_ZeroTTL() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.ZeroTTL)
-	suite.Require().Nil(adapter, "Should be nil on zero TTL")
-	suite.Require().Error(err, "Should give error on zero TTL")
-
-	var actual testutil.TestStruct
-	err = adapter.Get(testutil.TestKeyForGet, &actual)
-
-	suite.Require().Equal(testutil.TestStruct{}, actual, "Actual should remain empty since the adapter is invalid")
-	suite.Require().Error(err, "Should error since the adapter is invalid")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestGet_InvalidTTL() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.InvalidTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid TTL")
-	suite.Require().Error(err, "Should give error on invalid TTL")
-
-	var actual testutil.TestStruct
-	err = adapter.Get(testutil.TestKeyForGet, &actual)
-
-	suite.Require().Equal(testutil.TestStruct{}, actual, "Actual should remain empty since the adapter is invalid")
-	suite.Require().Error(err, "Should error since the adapter is invalid")
-}
-
-// ---------------------------------------------------------------------
-
-func (suite *MongoDBAdapterTestSuite) TestSet_NilClient() {
-	adapter, err := mongodbcacheadapters.New(nil, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().Nil(adapter, "Should be nil on nil mongo client")
-	suite.Require().Error(err, "Should give error on nil mongo client")
-
-	err = adapter.Set(testutil.TestKeyForSet, testutil.TestValue, nil)
-	suite.Require().Error(err, "Should error since the adapter is invalid (nil client)")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestSet_InvalidClient() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	err = client.Disconnect(context.Background())
-	suite.Require().NoError(err, "Should not give error on disconnecting a mongo client since no operations has been performed after the connection")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid (disconnected) mongo client")
-	suite.Require().Error(err, "Should give error on invalid (disconnected) mongo client")
-
-	err = adapter.Set(testutil.TestKeyForSet, testutil.TestValue, nil)
-	suite.Require().Error(err, "Should error since the adapter is invalid (invalid client)")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestSet_InvalidDatabase() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-	testDatabaseNameButInvalid := fmt.Sprintf("%s:but-invalid", testDatabase)
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabaseNameButInvalid, testCollection, testutil.DummyTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid database name")
-	suite.Require().Error(err, "Should give error on invalid database name")
-
-	err = adapter.Set(testutil.TestKeyForSet, testutil.TestValue, nil)
-	suite.Require().Error(err, "Should error since the adapter is invalid (invalid database name)")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestSet_InvalidCollection() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-	testCollectionNameButInvalid := fmt.Sprintf("%s:but-invalid", testCollection)
-
-	adapter, err := mongodbcacheadapters.New(client, testCollectionNameButInvalid, testCollection, testutil.DummyTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid collection name")
-	suite.Require().Error(err, "Should give error on invalid collection name")
-
-	err = adapter.Set(testutil.TestKeyForSet, testutil.TestValue, nil)
-	suite.Require().Error(err, "Should error since the adapter is invalid (invalid collection name)")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestSet_ZeroTTL() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.ZeroTTL)
-	suite.Require().Nil(adapter, "Should be nil on zero TTL")
-	suite.Require().Error(err, "Should give error on zero TTL")
-
-	err = adapter.Set(testutil.TestKeyForSet, testutil.TestValue, nil)
-	suite.Require().Error(err, "Should error since the adapter is invalid (zero TTL)")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestSet_InvalidTTL() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.InvalidTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid TTL")
-	suite.Require().Error(err, "Should give error on invalid TTL")
-
-	err = adapter.Set(testutil.TestKeyForSet, testutil.TestValue, nil)
-	suite.Require().Error(err, "Should error since the adapter is invalid (invalid TTL)")
-}
-
-// ---------------------------------------------------------------------
-
-func (suite *MongoDBAdapterTestSuite) TestDelete_NilClient() {
-	adapter, err := mongodbcacheadapters.New(nil, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().Nil(adapter, "Should be nil on nil mongo client")
-	suite.Require().Error(err, "Should give error on nil mongo client")
-
-	err = adapter.Delete(testutil.TestKeyForDelete)
-
-	suite.Require().Error(err, "Should error since the adapter is invalid (nil client)")
-
-}
-
-func (suite *MongoDBAdapterTestSuite) TestDelete_InvalidClient() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	err = client.Disconnect(context.Background())
-	suite.Require().NoError(err, "Should not give error on disconnecting a mongo client since no operations has been performed after the connection")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid (disconnected) mongo client")
-	suite.Require().Error(err, "Should give error on invalid (disconnected) mongo client")
-
-	err = adapter.Delete(testutil.TestKeyForDelete)
-
-	suite.Require().Error(err, "Should error since the adapter is invalid (invalid client)")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestDelete_InvalidDatabase() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-	testDatabaseNameButInvalid := fmt.Sprintf("%s:but-invalid", testDatabase)
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabaseNameButInvalid, testCollection, testutil.DummyTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid database name")
-	suite.Require().Error(err, "Should give error on invalid database name")
-
-	err = adapter.Delete(testutil.TestKeyForDelete)
-
-	suite.Require().Error(err, "Should error since the adapter is invalid (invalid database name)")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestDelete_InvalidCollection() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-	testCollectionNameButInvalid := fmt.Sprintf("%s:but-invalid", testCollection)
-
-	adapter, err := mongodbcacheadapters.New(client, testCollectionNameButInvalid, testCollection, testutil.DummyTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid collection name")
-	suite.Require().Error(err, "Should give error on invalid collection name")
-
-	err = adapter.Delete(testutil.TestKeyForDelete)
-
-	suite.Require().Error(err, "Should error since the adapter is invalid (invalid collection name)")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestDelete_ZeroTTL() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.ZeroTTL)
-	suite.Require().Nil(adapter, "Should be nil on zero TTL")
-	suite.Require().Error(err, "Should give error on zero TTL")
-
-	err = adapter.Delete(testutil.TestKeyForDelete)
-	suite.Require().Error(err, "Should error since the adapter is invalid (zero-TTL)")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestDelete_InvalidTTL() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.InvalidTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid TTL")
-	suite.Require().Error(err, "Should give error on invalid TTL")
-
-	err = adapter.Delete(testutil.TestKeyForDelete)
-
-	suite.Require().Error(err, "Should error since the adapter is invalid (invalid TTL)")
-}
-
-// ---------------------------------------------------------------------
-
-func (suite *MongoDBAdapterTestSuite) TestSetTTL_NilClient() {
-	adapter, err := mongodbcacheadapters.New(nil, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().Nil(adapter, "Should be nil on nil mongo client")
-	suite.Require().Error(err, "Should give error on nil mongo client")
-
-	err = adapter.SetTTL(testutil.TestKeyForSetTTL, testutil.DummyTTL)
-
-	suite.Require().Error(err, "Should error since the adapter is invalid")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestSetTTL_InvalidClient() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	err = client.Disconnect(context.Background())
-	suite.Require().NoError(err, "Should not give error on disconnecting a mongo client since no operations has been performed after the connection")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid (disconnected) mongo client")
-	suite.Require().Error(err, "Should give error on invalid (disconnected) mongo client")
-
-	err = adapter.SetTTL(testutil.TestKeyForSetTTL, testutil.DummyTTL)
-
-	suite.Require().Error(err, "Should error since the adapter is invalid")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestSetTTL_InvalidDatabase() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-	testDatabaseNameButInvalid := fmt.Sprintf("%s:but-invalid", testDatabase)
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabaseNameButInvalid, testCollection, testutil.DummyTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid database name")
-	suite.Require().Error(err, "Should give error on invalid database name")
-
-	err = adapter.SetTTL(testutil.TestKeyForSetTTL, testutil.DummyTTL)
-
-	suite.Require().Error(err, "Should error since the adapter is invalid")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestSetTTL_InvalidCollection() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-	testCollectionNameButInvalid := fmt.Sprintf("%s:but-invalid", testCollection)
-
-	adapter, err := mongodbcacheadapters.New(client, testCollectionNameButInvalid, testCollection, testutil.DummyTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid collection name")
-	suite.Require().Error(err, "Should give error on invalid collection name")
-
-	err = adapter.SetTTL(testutil.TestKeyForSetTTL, testutil.DummyTTL)
-
-	suite.Require().Error(err, "Should error since the adapter is invalid")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestSetTTL_ZeroTTL() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.ZeroTTL)
-	suite.Require().Nil(adapter, "Should be nil on zero TTL")
-	suite.Require().Error(err, "Should give error on zero TTL")
-
-	err = adapter.SetTTL(testutil.TestKeyForSetTTL, testutil.DummyTTL)
-
-	suite.Require().Error(err, "Should error since the adapter is invalid")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestSetTTL_InvalidTTL() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.InvalidTTL)
-	suite.Require().Nil(adapter, "Should be nil on invalid TTL")
-	suite.Require().Error(err, "Should give error on invalid TTL")
-
-	err = adapter.SetTTL(testutil.TestKeyForSetTTL, testutil.DummyTTL)
-
-	suite.Require().Error(err, "Should error since the adapter is invalid")
-}
-
-// ---------------------------------------
-
-func (suite *MongoDBAdapterTestSuite) TestOpenCloseSessionOK() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
-
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.DummyTTL)
+func (suite *MongoDBAdapterTestSuite) TestOpenCloseSession_OK() {
+	adapter, err := suite.NewAdapter()
 	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
 
 	sessionAdapter, err := adapter.OpenSession()
@@ -637,12 +213,13 @@ func (suite *MongoDBAdapterTestSuite) TestOpenCloseSessionOK() {
 	err = sessionAdapter.Close()
 	suite.Require().NoError(err, "Should not give error on closing a valid session adapter")
 }
-func (suite *MongoDBAdapterTestSuite) TestDel_ErrMissing() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
 
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.DummyTTL)
+func (suite *MongoDBAdapterTestSuite) TestDel_ErrMissing() {
+	mockClient := newMockMongoClientAdapter()
+
+	suite.Require().NotNil(mockClient, "Should instantiate a valid mongo client")
+
+	adapter, err := mongodbcacheadapters.New(mockClient.Client, testDatabase, testCollection, testutil.DummyTTL)
 	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
 
 	testKeyForDeleteButInvalid := fmt.Sprintf("%s:but-invalid", testutil.TestKeyForDelete)
@@ -654,11 +231,11 @@ func (suite *MongoDBAdapterTestSuite) TestDel_ErrMissing() {
 // It differs from common/TestDelete_OK since it's the fail of the Delete operation
 // that is tested
 func (suite *MongoDBAdapterTestSuite) TestDel_DoubleDel() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
+	mockClient := newMockMongoClientAdapter()
 
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.DummyTTL)
+	suite.Require().NotNil(mockClient, "Should instantiate a valid mongo client")
+
+	adapter, err := mongodbcacheadapters.New(mockClient.Client, testDatabase, testCollection, testutil.DummyTTL)
 	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
 
 	err = adapter.Set(testutil.TestKeyForDelete, testutil.TestValue, nil)
@@ -666,8 +243,8 @@ func (suite *MongoDBAdapterTestSuite) TestDel_DoubleDel() {
 
 	var actual testutil.TestStruct
 	err = adapter.Get(testutil.TestKeyForDelete, &actual)
-	suite.Require().Equal(testutil.TestValue, actual, "The value just set must be equal to the test value")
 	suite.Require().NoError(err, "Value should be valid, hence no error")
+	suite.Require().Equal(testutil.TestValue, actual, "The value just set must be equal to the test value")
 
 	err = adapter.Delete(testutil.TestKeyForDelete)
 	suite.Require().NoError(err, "Should not error on valid Delete")
@@ -677,11 +254,11 @@ func (suite *MongoDBAdapterTestSuite) TestDel_DoubleDel() {
 
 }
 func (suite *MongoDBAdapterTestSuite) TestTTL_SetDeleteExpires() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
+	mockClient := newMockMongoClientAdapter()
 
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.DummyTTL)
+	suite.Require().NotNil(mockClient, "Should instantiate a valid mongo client")
+
+	adapter, err := mongodbcacheadapters.New(mockClient.Client, testDatabase, testCollection, testutil.DummyTTL)
 	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
 
 	duration := 250 * time.Millisecond
@@ -706,11 +283,11 @@ func (suite *MongoDBAdapterTestSuite) TestTTL_SetDeleteExpires() {
 
 }
 func (suite *MongoDBAdapterTestSuite) TestTTL_SetNotExistingKey() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
+	mockClient := newMockMongoClientAdapter()
 
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.DummyTTL)
+	suite.Require().NotNil(mockClient, "Should instantiate a valid mongo client")
+
+	adapter, err := mongodbcacheadapters.New(mockClient.Client, testDatabase, testCollection, testutil.DummyTTL)
 	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
 
 	testKeyForSetDLLButInvalid := fmt.Sprintf("%s:but-invalid", testutil.TestKeyForSetTTL)
@@ -718,14 +295,16 @@ func (suite *MongoDBAdapterTestSuite) TestTTL_SetNotExistingKey() {
 	duration := new(time.Duration)
 	*duration = time.Millisecond * 250
 	err = adapter.SetTTL(testKeyForSetDLLButInvalid, *duration)
+	suite.Require().Error(err, "Should error on set with not existing key")
 	suite.Require().ErrorIs(err, cacheadapters.ErrNotFound, "Should error on set with not existing key")
 }
-func (suite *MongoDBAdapterTestSuite) TestTTL_SetOverExpired() {
-	client, err := newMongoDBClient()
-	suite.Require().NoError(err, "Should not give error on creating a valid mongo client")
-	suite.Require().NotNil(client, "Should instantiate a valid mongo client")
 
-	adapter, err := mongodbcacheadapters.New(client, testDatabase, testCollection, testutil.DummyTTL)
+func (suite *MongoDBAdapterTestSuite) TestTTL_SetOverExpired() {
+	mockClient := newMockMongoClientAdapter()
+
+	suite.Require().NotNil(mockClient, "Should instantiate a valid mongo client")
+
+	adapter, err := mongodbcacheadapters.New(mockClient.Client, testDatabase, testCollection, testutil.DummyTTL)
 	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
 
 	duration := new(time.Duration)
@@ -733,8 +312,44 @@ func (suite *MongoDBAdapterTestSuite) TestTTL_SetOverExpired() {
 	err = adapter.Set(testutil.TestKeyForSetTTL, testutil.TestValue, duration)
 	suite.Require().NoError(err, "Should not error on valid set")
 
+	var actual testutil.TestStruct
+	err = adapter.Get(testutil.TestKeyForSetTTL, &actual)
+	suite.Require().NoError(err, "Should not error on valid get (is not expired)")
+	suite.Require().Equal(testutil.TestValue, actual, "The value just set must be equal to the test value (is not expired)")
+
 	suite.SleepFunc(100 * time.Millisecond)
 
 	err = adapter.SetTTL(testutil.TestKeyForSetTTL, (*duration)*2)
+	suite.Require().NoError(err, "Should not error on setting TTL over expired key, since it's removed")
 	suite.Require().ErrorIs(err, nil, "Should not error on setting TTL over expired key, since it's removed")
+}
+
+// -------------------------
+
+func (suite *MongoDBAdapterTestSuite) TestGet_OK() {
+	adapter, _ := suite.NewAdapter()
+
+	err := adapter.Set(testutil.TestKeyForGet, testutil.TestValue, nil)
+	suite.Require().NoError(err, "Should perform the Set in order to test the Get")
+
+	var actual testutil.TestStruct
+	err = adapter.Get(testutil.TestKeyForGet, &actual)
+
+	suite.Require().Equal(testutil.TestValue, actual, "Should be the correct value on a correct get and key not expired")
+	suite.Require().NoError(err, "Should not return an error on valid object reference")
+}
+
+func (suite *MongoDBAdapterTestSuite) TestSet_OK() {
+	adapter, _ := suite.NewAdapter()
+
+	duration := new(time.Duration)
+	*duration = time.Second
+
+	err := adapter.Set(testutil.TestKeyForSet, testutil.TestValue, duration)
+	suite.Require().NoError(err, "Should not error on valid set")
+
+	var actual testutil.TestStruct
+	err = adapter.Get(testutil.TestKeyForSet, &actual)
+	suite.Require().Equal(testutil.TestValue, actual, "The value just set must be equal to the test value")
+	suite.Require().NoError(err, "Value should be valid, hence no error")
 }

@@ -1,4 +1,4 @@
-// Copyright 2021 The Tryvium Company LTD
+// Copyright 2021 Tryvium Travels LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	mongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
 
 type MongoDBSessionAdapter struct {
@@ -49,7 +51,6 @@ func NewSession(session mongo.Session, collection *mongo.Collection, defaultTTL 
 	if defaultTTL < 0 {
 		return nil, cacheadapters.ErrInvalidTTL
 	}
-
 	return &MongoDBSessionAdapter{
 		session:    session,
 		collection: collection,
@@ -64,15 +65,18 @@ func (msa *MongoDBSessionAdapter) Close() error {
 }
 
 func (msa *MongoDBSessionAdapter) Get(key string, objectRef interface{}) error {
-	result := msa.collection.FindOne(context.Background(), bson.M{"key": key})
+	if objectRef == nil {
+		return cacheadapters.ErrGetRequiresObjectReference
+	}
 
-	if result == nil {
+	result := msa.collection.FindOne(context.Background(), bson.M{"key": key})
+	if result == nil || result.Err() != nil {
 		return cacheadapters.ErrNotFound
 	}
 
 	var valueFromMemory cacheItem
 
-	err := result.Decode(valueFromMemory)
+	err := result.Decode(&valueFromMemory)
 	if err != nil {
 		return err
 	}
@@ -93,6 +97,15 @@ func (msa *MongoDBSessionAdapter) Get(key string, objectRef interface{}) error {
 // Set sets a value represented by the object parameter into the cache,
 // with the specified key.
 func (msa *MongoDBSessionAdapter) Set(key string, object interface{}, TTL *time.Duration) error {
+	// TTL nil
+	if TTL == nil {
+		TTL = &msa.defaultTTL
+	}
+
+	if *TTL <= 0 {
+		return cacheadapters.ErrInvalidTTL
+	}
+
 	marshalledObj, err := bson.Marshal(&object)
 	if err != nil {
 		return err
@@ -104,9 +117,17 @@ func (msa *MongoDBSessionAdapter) Set(key string, object interface{}, TTL *time.
 	optionsUpdate := options.Update().SetUpsert(true)
 	filter := bson.M{"key": key}
 	update := bson.M{
-		"key":        key,
-		"item":       marshalledObj,
-		"expires_at": expiresAt,
+		"$set": bson.M{
+			"key":        key,
+			"item":       bson.Raw(marshalledObj),
+			"expires_at": expiresAt,
+		},
+	}
+
+	var actual testutil.TestStruct
+	err = bson.Unmarshal(marshalledObj, &actual)
+	if err != nil {
+		return err
 	}
 
 	_, err = msa.collection.UpdateOne(context.Background(), filter, update, optionsUpdate)
@@ -121,25 +142,31 @@ func (msa *MongoDBSessionAdapter) Set(key string, object interface{}, TTL *time.
 // cacheadapters.TTLExpired or negative duration.
 func (msa *MongoDBSessionAdapter) SetTTL(key string, newTTL time.Duration) error {
 	if newTTL <= cacheadapters.TTLExpired {
-		msa.Delete(key)
-		return cacheadapters.ErrInvalidTTL
+		err := msa.Delete(key)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	mongoResult := msa.collection.FindOne(context.Background(), bson.M{"key": key})
-	if mongoResult == nil {
+	if mongoResult == nil || mongoResult.Err() != nil {
 		return cacheadapters.ErrNotFound
 	}
 
 	var result cacheItem
-	err := mongoResult.Decode(result)
+	err := mongoResult.Decode(&result)
 	if err != nil {
 		return err
 	}
 
 	now := time.Now()
 	if result.ExpiresAt.UnixNano() < now.UnixNano() {
-		msa.Delete(key)
-		return cacheadapters.ErrNotFound
+		err = msa.Delete(key)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	result.ExpiresAt = now.Add(newTTL)

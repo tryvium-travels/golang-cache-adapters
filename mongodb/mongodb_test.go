@@ -1,4 +1,4 @@
-// Copyright 2021 The Tryvium Company LTD
+// Copyright 2021 Tryvium Travels LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,11 +21,11 @@ import (
 	mongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/benweissmann/memongo"
+	"github.com/sbansal7/memongo"
 )
 
 const (
-	mongoDBVersion string        = "4.4.0"
+	mongoDBVersion string        = "4.4.6" // "4.2.1"
 	testDatabase   string        = "test_database"
 	testCollection string        = "test_collection"
 	testDefaultTTL time.Duration = time.Millisecond * 50
@@ -52,11 +52,15 @@ var (
 			ExpireAfterSeconds: new(int32), // default value 0, because expires after 0 seconds after the expiration time.
 		},
 	}
+	testMongoOptions *memongo.Options = &memongo.Options{
+		MongoVersion:   mongoDBVersion,
+		StartupTimeout: 10 * time.Second,
+	}
 )
 
 func startLocalMongoDBServer() {
 	var err error
-	localMongoDBServer, err = memongo.Start(mongoDBVersion)
+	localMongoDBServer, err = memongo.StartWithOptions(testMongoOptions)
 	if err != nil {
 		panic(err)
 	}
@@ -64,12 +68,8 @@ func startLocalMongoDBServer() {
 	createTestCollectionAndIndex()
 }
 
-func newMongoDBClient() (*mongo.Client, error) {
-	return mongo.Connect(ctx.Background(), options.Client().ApplyURI(localMongoDBServer.URI()))
-}
-
 func createTestCollectionAndIndex() {
-	client, err := newMongoDBClient()
+	client, err := mongo.Connect(ctx.Background(), options.Client().ApplyURI(localMongoDBServer.URI()))
 	if err != nil {
 		panic(err)
 	}
