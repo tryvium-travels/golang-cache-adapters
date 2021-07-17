@@ -22,8 +22,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	mongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-
-	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
 )
 
 type MongoDBSessionAdapter struct {
@@ -122,12 +120,6 @@ func (msa *MongoDBSessionAdapter) Set(key string, object interface{}, TTL *time.
 			"item":       bson.Raw(marshalledObj),
 			"expires_at": expiresAt,
 		},
-	}
-
-	var actual testutil.TestStruct
-	err = bson.Unmarshal(marshalledObj, &actual)
-	if err != nil {
-		return err
 	}
 
 	_, err = msa.collection.UpdateOne(context.Background(), filter, update, optionsUpdate)

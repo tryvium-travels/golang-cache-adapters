@@ -20,7 +20,6 @@ import (
 	"time"
 
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
-	mongo "go.mongodb.org/mongo-driver/mongo"
 )
 
 var (
@@ -28,7 +27,7 @@ var (
 )
 
 type MongoDBAdapter struct {
-	client         *mongo.Client // The MongoDB client interface to interact with the collection.
+	client         MongoClient   // The MongoDB client interface to interact with the collection.
 	databaseName   string        // The name of the database used in MongoDB to cache data.
 	collectionName string        // The name of the collection used in MongoDB to cache data.
 	defaultTTL     time.Duration // The defaultTTL of the Set operations.
@@ -37,7 +36,7 @@ type MongoDBAdapter struct {
 // NesSession create a new MongoDB Cache adapter from an existing
 // MongoDB client and the name of the database and the collection,
 // with a given default TTL.
-func New(client *mongo.Client, databaseName string, collectionName string, defaultTTL time.Duration) (cacheadapters.CacheAdapter, error) {
+func New(client MongoClient, databaseName string, collectionName string, defaultTTL time.Duration) (cacheadapters.CacheAdapter, error) {
 	if client == nil {
 		return nil, ErrNilClient
 	}

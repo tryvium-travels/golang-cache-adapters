@@ -15,10 +15,8 @@
 package mongodbcacheadapters_test
 
 import (
-	ctx "context"
-	"log"
-
 	"github.com/stretchr/testify/mock"
+	mongodbcacheadapters "github.com/tryvium-travels/golang-cache-adapters/mongodb"
 	mongo "go.mongodb.org/mongo-driver/mongo"
 
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -26,36 +24,15 @@ import (
 
 type mongoClientMock struct {
 	mock.Mock
-	*mongo.Client
+	mongodbcacheadapters.MongoClient
 }
 
-func (mcm *mongoClientMock) StartSession() (mongo.Session, error) {
+func (mcm *mongoClientMock) StartSession(opts ...*options.SessionOptions) (mongo.Session, error) {
 	args := mcm.Called()
 
 	return args.Get(0).(mongo.Session), args.Error(1)
 }
 
-type mongoSessionMock struct {
-	mock.Mock
-	mongo.Session
-}
-
 func newMockMongoClientAdapter() *mongoClientMock {
-	aaa := new(mongoClientMock)
-	if aaa == nil {
-		log.Fatalln("new mongoClientMock is wierdly nil")
-	}
-	clientMongo, err := mongo.Connect(ctx.Background(), options.Client().ApplyURI(localMongoDBServer.URI()))
-	if err != nil {
-		log.Fatalln("client mongo is not created")
-	}
-	aaa.Client = clientMongo
-	if aaa.Client == nil {
-		log.Fatalln("new Client is wierdly nil")
-	}
-	return aaa
-}
-
-func newMockMongoSessionAdapter() *mongoSessionMock {
-	return new(mongoSessionMock)
+	return new(mongoClientMock)
 }

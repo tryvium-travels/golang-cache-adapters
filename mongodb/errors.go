@@ -48,10 +48,4 @@ var (
 	//ErrSessionClosed will come out if you try to do operation on an already
 	// closed session
 	ErrSessionClosed = fmt.Errorf("cannot use a closed connection")
-
-	//InvalidDatabase will come out if the database name is invalid
-	InvalidDatabase = fmt.Errorf("the database used as a cache is invalid")
-
-	//InvalidCollection will come out if the collection name is invalid
-	InvalidCollection = fmt.Errorf("the collection used as a cache is invalid")
 )
