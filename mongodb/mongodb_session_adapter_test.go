@@ -14,3 +14,104 @@
 
 package mongodbcacheadapters_test
 
+import (
+	"context"
+
+	"github.com/stretchr/testify/mock"
+	mongodbcacheadapters "github.com/tryvium-travels/golang-cache-adapters/mongodb"
+	testutil "github.com/tryvium-travels/golang-cache-adapters/test"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
+
+func (suite *MongoDBAdapterTestSuite) TestNewSession_NilSession() {
+	session, err := mongodbcacheadapters.NewSession(nil, testutil.DummyTTL)
+	suite.Require().Nil(session, "Should be nil on invalid collection")
+	suite.Require().Error(err, "Should give error on invalid collection")
+}
+
+func (suite *MongoDBAdapterTestSuite) TestNewSession_InvalidTTL() {
+	session, err := mongodbcacheadapters.NewSession(newMockMongoCollection(nil, true, true, true, true), testutil.InvalidTTL)
+	suite.Require().Nil(session, "Should be nil on invalid TTL")
+	suite.Require().Error(err, "Should give error on invalid TTL")
+}
+
+func (suite *MongoDBAdapterTestSuite) TestSessionGet_DecodeError() {
+	session, err := suite.NewSession()
+	suite.Require().NoError(err, "Should not error on creating a new valid session adapter.")
+
+	var actual complex128
+	err = session.Get(testutil.TestKeyForGet, &actual)
+	suite.Require().Error(err, "Should error on getting a non decodable value")
+}
+
+func (suite *MongoDBAdapterTestSuite) TestSessionSet_EncodeError() {
+	session, err := suite.NewSession()
+	suite.Require().NoError(err, "Should not error on creating a new valid session adapter.")
+
+	err = session.Set(testutil.TestKeyForGet, complex128(1), nil)
+	suite.Require().Error(err, "Should error on setting a non encodable value")
+}
+
+func (suite *MongoDBAdapterTestSuite) TestSessionSet_UpdateError() {
+	mockedCollection := newMockMongoCollection(nil, true, true, true, true)
+	session, err := mongodbcacheadapters.NewSession(mockedCollection, testutil.DummyTTL)
+	suite.Require().NoError(err, "Should not error on creating a new valid session adapter.")
+
+	mockedCollection.On("UpdateOne", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, testutil.ErrTestingFailureCheck).Once()
+
+	var actual testutil.TestStruct
+	err = session.Set(testutil.TestKeyForGet, &actual, nil)
+	suite.Require().Error(err, "Should error because of the mocked collection")
+}
+
+func (suite *MongoDBAdapterTestSuite) TestSessionSetTTL_DecodeError() {
+	mongoClient, err := mongo.Connect(context.Background(), options.Client().ApplyURI(localMongoDBServer.URI()))
+	suite.Require().NoError(err, "Should not error on creating a valid mongo client")
+	suite.Require().NotNil(mongoClient, "Should instantiate a valid mongo client")
+
+	collection := mongoClient.Database(testDatabase).Collection(testCollection)
+
+	mockedCollection := newMockMongoCollection(collection, true, true, true, true)
+	session, err := mongodbcacheadapters.NewSession(mockedCollection, testutil.DummyTTL)
+	suite.Require().NoError(err, "Should not error on creating a new valid session adapter.")
+
+	mockedCollection.On("FindOne", mock.Anything, mock.Anything).Return(nil, testutil.ErrTestingFailureCheck).Once()
+
+	err = session.SetTTL(testutil.TestKeyForGet, testutil.DummyTTL)
+	suite.Require().Error(err, "Should error because of the mocked collection")
+}
+
+func (suite *MongoDBAdapterTestSuite) TestSessionSetTTL_UpdateError() {
+	mongoClient, err := mongo.Connect(context.Background(), options.Client().ApplyURI(localMongoDBServer.URI()))
+	suite.Require().NoError(err, "Should not error on creating a valid mongo client")
+	suite.Require().NotNil(mongoClient, "Should instantiate a valid mongo client")
+
+	collection := mongoClient.Database(testDatabase).Collection(testCollection)
+
+	mockedCollection := newMockMongoCollection(collection, false, true, true, true)
+	session, err := mongodbcacheadapters.NewSession(mockedCollection, testutil.DummyTTL)
+	suite.Require().NoError(err, "Should not error on creating a new valid session adapter.")
+
+	mockedCollection.On("UpdateOne", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, testutil.ErrTestingFailureCheck).Once()
+
+	err = session.SetTTL(testutil.TestKeyForGet, testutil.DummyTTL)
+	suite.Require().Error(err, "Should error because of the mocked collection")
+}
+
+func (suite *MongoDBAdapterTestSuite) TestSessionDelete_DeleteError() {
+	mongoClient, err := mongo.Connect(context.Background(), options.Client().ApplyURI(localMongoDBServer.URI()))
+	suite.Require().NoError(err, "Should not error on creating a valid mongo client")
+	suite.Require().NotNil(mongoClient, "Should instantiate a valid mongo client")
+
+	collection := mongoClient.Database(testDatabase).Collection(testCollection)
+
+	mockedCollection := newMockMongoCollection(collection, true, true, true, true)
+	session, err := mongodbcacheadapters.NewSession(mockedCollection, testutil.DummyTTL)
+	suite.Require().NoError(err, "Should not error on creating a new valid session adapter.")
+
+	mockedCollection.On("DeleteOne", mock.Anything, mock.Anything).Return(nil, testutil.ErrTestingFailureCheck).Once()
+
+	err = session.Delete(testutil.TestKeyForDelete)
+	suite.Require().Error(err, "Should error because of the mocked collection")
+}

@@ -70,22 +70,7 @@ func newTestSessionFunc(t *testing.T, defaultTTL time.Duration) func() (cacheada
 			panic(err)
 		}
 
-		mongoSession, err := mongoClient.StartSession()
-		if err != nil {
-			return nil, err
-		}
-
-		database := mongoClient.Database(testDatabase)
-		if database == nil {
-			return nil, mongodbcacheadapters.ErrNilDatabase
-		}
-
-		collection := database.Collection(testCollection)
-		if collection == nil {
-			return nil, mongodbcacheadapters.ErrNilCollection
-		}
-
-		sessionAdapter, err := mongodbcacheadapters.NewSession(mongoSession, collection, defaultTTL)
+		sessionAdapter, err := mongodbcacheadapters.NewSession(mongoClient.Database(testDatabase).Collection(testCollection), defaultTTL)
 		if err != nil {
 			return nil, err
 		}
@@ -192,43 +177,6 @@ func (suite *MongoDBAdapterTestSuite) TestNew_InvalidTTL() {
 	suite.Require().Error(err, "Should give error on invalid TTL")
 }
 
-func (suite *MongoDBAdapterTestSuite) TestGet_SessionError() {
-	mockClient := newMockMongoClient()
-	adapter, err := mongodbcacheadapters.New(mockClient, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().NoError(err, "Should not error on creating a valid adapter")
-	suite.Require().NotNil(adapter, "Should be successfully created")
-
-	mockClient.On("StartSession").Return(nil, testutil.ErrTestingFailureCheck).Once()
-
-	var actual testutil.TestStruct
-	err = adapter.Get(testutil.TestKeyForGet, &actual)
-	suite.Require().Error(err, "Should error on getting with an invalid mongo client")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestSet_SessionError() {
-	mockClient := newMockMongoClient()
-	adapter, err := mongodbcacheadapters.New(mockClient, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().NoError(err, "Should not error on creating a valid adapter")
-	suite.Require().NotNil(adapter, "Should be successfully created")
-
-	mockClient.On("StartSession").Return(nil, testutil.ErrTestingFailureCheck).Once()
-
-	err = adapter.Set(testutil.TestKeyForSet, testutil.TestValue, nil)
-	suite.Require().Error(err, "Should error on setting with an invalid mongo client")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestSetTTL_SessionError() {
-	mockClient := newMockMongoClient()
-	adapter, err := mongodbcacheadapters.New(mockClient, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().NoError(err, "Should not error on creating a valid adapter")
-	suite.Require().NotNil(adapter, "Should be successfully created")
-
-	mockClient.On("StartSession").Return(nil, testutil.ErrTestingFailureCheck).Once()
-
-	err = adapter.SetTTL(testutil.TestKeyForSetTTL, testutil.DummyTTL)
-	suite.Require().Error(err, "Should error on setting TTL with an invalid mongo client")
-}
-
 func (suite *MongoDBAdapterTestSuite) TestTTL_SetDeleteExpires() {
 	adapter, err := suite.NewAdapter()
 	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
@@ -288,18 +236,6 @@ func (suite *MongoDBAdapterTestSuite) TestTTL_SetOverExpired() {
 	suite.Require().ErrorIs(err, nil, "Should not error on setting TTL over expired key, since it's removed")
 }
 
-func (suite *MongoDBAdapterTestSuite) TestDelete_SessionError() {
-	mockClient := newMockMongoClient()
-	adapter, err := mongodbcacheadapters.New(mockClient, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().NoError(err, "Should not error on creating a valid adapter")
-	suite.Require().NotNil(adapter, "Should be successfully created")
-
-	mockClient.On("StartSession").Return(nil, testutil.ErrTestingFailureCheck).Once()
-
-	err = adapter.Delete(testutil.TestKeyForDelete)
-	suite.Require().Error(err, "Should error on deleting with an invalid mongo client")
-}
-
 func (suite *MongoDBAdapterTestSuite) TestDelete_ErrMissing() {
 	adapter, err := suite.NewAdapter()
 	suite.Require().NoError(err, "Should not error on creating a new valid adapter.")
@@ -340,17 +276,4 @@ func (suite *MongoDBAdapterTestSuite) TestOpenSession_OK() {
 	sessionAdapter, err := adapter.OpenSession()
 	suite.Require().NoError(err, "Should not error on creating a valid session adapter")
 	suite.Require().NotNil(sessionAdapter, "Should be successfully created")
-}
-
-func (suite *MongoDBAdapterTestSuite) TestOpenSession_Error() {
-	mockClient := newMockMongoClient()
-	adapter, err := mongodbcacheadapters.New(mockClient, testDatabase, testCollection, testDefaultTTL)
-	suite.Require().NoError(err, "Should not error on creating a valid adapter")
-	suite.Require().NotNil(adapter, "Should be successfully created")
-
-	mockClient.On("StartSession").Return(nil, testutil.ErrTestingFailureCheck).Once()
-
-	sessionAdapter, err := adapter.OpenSession()
-	suite.Require().Nil(sessionAdapter, "Should be nil on creating an valid session adapter with an invalid mongo client")
-	suite.Require().Error(err, "Should error on creating an valid session adapter with an invalid mongo client")
 }

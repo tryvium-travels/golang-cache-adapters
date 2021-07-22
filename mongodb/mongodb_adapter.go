@@ -59,24 +59,15 @@ func New(client MongoClient, databaseName string, collectionName string, default
 }
 
 func (ma *MongoDBAdapter) OpenSession() (cacheadapters.CacheSessionAdapter, error) {
-	mongoSession, err := ma.client.StartSession()
-	if err != nil {
-		return nil, err
-	}
+	collection := ma.client.Database(ma.databaseName).Collection(ma.collectionName)
 
-	mongoDatabase := ma.client.Database(ma.databaseName)
-	mongoCollection := mongoDatabase.Collection(ma.collectionName)
-
-	return NewSession(mongoSession, mongoCollection, ma.defaultTTL)
+	return NewSession(collection, ma.defaultTTL)
 }
 
 // Get obtains a value from the cache using a key, then tries to unmarshal
 // it into the object reference passed as parameter.
 func (ma *MongoDBAdapter) Get(key string, objectRef interface{}) error {
-	msa, err := ma.OpenSession()
-	if err != nil {
-		return err
-	}
+	msa, _ := ma.OpenSession()
 
 	defer msa.Close()
 
@@ -85,11 +76,7 @@ func (ma *MongoDBAdapter) Get(key string, objectRef interface{}) error {
 
 // Set sets a value represented by the object parameter into the cache, with the specified key.
 func (ma *MongoDBAdapter) Set(key string, object interface{}, TTL *time.Duration) error {
-	rsa, err := ma.OpenSession()
-	if err != nil {
-		return err
-	}
-
+	rsa, _ := ma.OpenSession()
 	defer rsa.Close()
 
 	return rsa.Set(key, object, TTL)
@@ -98,10 +85,7 @@ func (ma *MongoDBAdapter) Set(key string, object interface{}, TTL *time.Duration
 // SetTTL marks the specified key new expiration, deletes it via using
 // cacheadapters.TTLExpired or negative duration.
 func (ma *MongoDBAdapter) SetTTL(key string, newTTL time.Duration) error {
-	rsa, err := ma.OpenSession()
-	if err != nil {
-		return err
-	}
+	rsa, _ := ma.OpenSession()
 
 	defer rsa.Close()
 
@@ -110,10 +94,7 @@ func (ma *MongoDBAdapter) SetTTL(key string, newTTL time.Duration) error {
 
 // Delete deletes a key from the cache.
 func (ma *MongoDBAdapter) Delete(key string) error {
-	rsa, err := ma.OpenSession()
-	if err != nil {
-		return err
-	}
+	rsa, _ := ma.OpenSession()
 
 	defer rsa.Close()
 

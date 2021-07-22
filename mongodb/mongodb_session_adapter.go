@@ -20,14 +20,12 @@ import (
 
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
 	"go.mongodb.org/mongo-driver/bson"
-	mongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type MongoDBSessionAdapter struct {
-	session    mongo.Session     // The MongoDB session connected to this adapter.
-	collection *mongo.Collection // The used MongoDB collection.
-	defaultTTL time.Duration     // The defaultTTL of the Set operations.
+	collection MongoCollection // The used MongoDB collection.
+	defaultTTL time.Duration   // The defaultTTL of the Set operations.
 }
 
 type cacheItem struct {
@@ -37,20 +35,16 @@ type cacheItem struct {
 }
 
 // NesSession create a new MongoDB Session adapter
-func NewSession(session mongo.Session, collection *mongo.Collection, defaultTTL time.Duration) (cacheadapters.CacheSessionAdapter, error) {
-	if session == nil {
-		return nil, ErrNilSession
-	}
-
+func NewSession(collection MongoCollection, defaultTTL time.Duration) (cacheadapters.CacheSessionAdapter, error) {
 	if collection == nil {
 		return nil, ErrNilCollection
 	}
 
-	if defaultTTL < 0 {
+	if defaultTTL <= 0 {
 		return nil, cacheadapters.ErrInvalidTTL
 	}
+
 	return &MongoDBSessionAdapter{
-		session:    session,
 		collection: collection,
 		defaultTTL: defaultTTL,
 	}, nil
@@ -58,7 +52,6 @@ func NewSession(session mongo.Session, collection *mongo.Collection, defaultTTL 
 
 // Close closes the Cache Session.
 func (msa *MongoDBSessionAdapter) Close() error {
-	msa.session.EndSession(context.Background())
 	return nil
 }
 
@@ -72,19 +65,19 @@ func (msa *MongoDBSessionAdapter) Get(key string, objectRef interface{}) error {
 		return cacheadapters.ErrNotFound
 	}
 
-	var valueFromMemory cacheItem
+	var valueFromDB cacheItem
 
-	err := result.Decode(&valueFromMemory)
+	err := result.Decode(&valueFromDB)
 	if err != nil {
 		return err
 	}
 	now := time.Now()
-	if valueFromMemory.ExpiresAt.UnixNano() < now.UnixNano() {
+	if valueFromDB.ExpiresAt.UnixNano() < now.UnixNano() {
 		msa.Delete(key)
 		return cacheadapters.ErrNotFound
 	}
 
-	err = bson.Unmarshal(valueFromMemory.Item, objectRef)
+	err = bson.Unmarshal(valueFromDB.Item, objectRef)
 	if err != nil {
 		return err
 	}
@@ -95,7 +88,6 @@ func (msa *MongoDBSessionAdapter) Get(key string, objectRef interface{}) error {
 // Set sets a value represented by the object parameter into the cache,
 // with the specified key.
 func (msa *MongoDBSessionAdapter) Set(key string, object interface{}, TTL *time.Duration) error {
-	// TTL nil
 	if TTL == nil {
 		TTL = &msa.defaultTTL
 	}
@@ -134,10 +126,7 @@ func (msa *MongoDBSessionAdapter) Set(key string, object interface{}, TTL *time.
 // cacheadapters.TTLExpired or negative duration.
 func (msa *MongoDBSessionAdapter) SetTTL(key string, newTTL time.Duration) error {
 	if newTTL <= cacheadapters.TTLExpired {
-		err := msa.Delete(key)
-		if err != nil {
-			return err
-		}
+		msa.Delete(key)
 		return nil
 	}
 
@@ -154,10 +143,7 @@ func (msa *MongoDBSessionAdapter) SetTTL(key string, newTTL time.Duration) error
 
 	now := time.Now()
 	if result.ExpiresAt.UnixNano() < now.UnixNano() {
-		err = msa.Delete(key)
-		if err != nil {
-			return err
-		}
+		msa.Delete(key)
 		return nil
 	}
 
