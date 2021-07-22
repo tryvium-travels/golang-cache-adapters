@@ -71,6 +71,7 @@ func (msa *MongoDBSessionAdapter) Get(key string, objectRef interface{}) error {
 	if err != nil {
 		return err
 	}
+
 	now := time.Now()
 	if valueFromDB.ExpiresAt.UnixNano() < now.UnixNano() {
 		msa.Delete(key)

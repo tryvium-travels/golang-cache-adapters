@@ -38,11 +38,11 @@ type MongoDBAdapterTestSuite struct {
 	*testutil.CacheAdapterPartialTestSuite
 }
 
-func (suite *MongoDBAdapterTestSuite) SetupSuite() {
+func (suite *MongoDBAdapterTestSuite) SetupTest() {
 	startLocalMongoDBServer()
 }
 
-func (suite *MongoDBAdapterTestSuite) TearDownSuite() {
+func (suite *MongoDBAdapterTestSuite) TearDownTest() {
 	stopLocalMongoDBServer()
 }
 
