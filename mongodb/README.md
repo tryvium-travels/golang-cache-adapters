@@ -6,7 +6,7 @@
 ![GitHub](https://img.shields.io/github/license/tryvium-travels/golang-cache-adapters?style=flat-square)
 ![Twitter Follow](https://img.shields.io/twitter/follow/tryviumtravels?style=social)
 
-# Cache Adapter implementation for In Memory
+# Cache Adapter implementation for MongoDB
 
 A `CacheAdapter` implementation that allows to connect and use a MongoDB database instance.
 
@@ -21,13 +21,13 @@ import (
 	"log"
 	"time"
 	
-	inmemorycacheadapters "github.com/tryvium-travels/golang-cache-adapters/in_memory"
+	mongodbcacheadapters "github.com/tryvium-travels/golang-cache-adapters/mongodb"
 )
 
 func main() {
 	exampleTTL := time.Hour
 
-	adapter, err := inmemorycacheadapters.New(exampleTTL)
+	adapter, err := mongodbcacheadapters.New(exampleTTL)
 	if err != nil {
 		// remember to check for errors
 		log.Fatalf("Adapter initialization error: %s", err)
@@ -37,7 +37,7 @@ func main() {
 		Value string
 	}
 
-	exampleKey := "a:in_memory:key"
+	exampleKey := "a:mongodb:key"
 
 	var exampleValue exampleStruct
 	err = adapter.Get(exampleKey, &exampleValue)
@@ -46,7 +46,7 @@ func main() {
 		log.Fatalf("adapter.Get error: %s", err)
 	}
 
-	exampleKey = "another:in_memory:key"
+	exampleKey = "another:mongodb:key"
 
 	// nil TTL represents the default value put in the New function
 	err = adapter.Set(exampleKey, exampleValue, nil)
