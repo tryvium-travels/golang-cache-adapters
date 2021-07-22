@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package inmemorycacheadapters contains the implementations of
-// CacheAdapter and CacheSessionAdapter for in-memory cache, along
+// Package mongodbcacheadapters contains the implementations of
+// CacheAdapter and CacheSessionAdapter for a MongoDB instance based cache, along
 // with some helper methods to create instances.
-package inmemorycacheadapters
+package mongodbcacheadapters

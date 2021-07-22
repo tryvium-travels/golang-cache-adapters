@@ -15,7 +15,8 @@ A set of Cache Adapters for various distributed systems (like Redis) written in 
 ## Supported CacheAdapter implementations
 
 - [**MultiCache**](/multicache) -> Leverages the possibility to use multiple cache adapters at the same time, useful to create fallbacks in case one or more of the cache service you specified gives temporary errors.
-- [**Redis**](/redis) -> using [`github.com/gomodule/redigo`](github.com/gomodule/redigo)
+- [**Redis**](/redis) -> using [`github.com/gomodule/redigo`](https://github.com/gomodule/redigo)
+- [**MongoDB**](/mongodb) -> using [`github.com/mongodb/mongo-go-driver`](https://github.com/mongodb/mongo-go-driver)
 - [**InMemory**](/in_memory) -> Uses a map of objects with expiration of keys
 
 ## Library reference
