@@ -15,15 +15,10 @@
 package mongodbcacheadapters
 
 import (
-	ctx "context"
 	"strings"
 	"time"
 
 	cacheadapters "github.com/tryvium-travels/golang-cache-adapters"
-)
-
-var (
-	isDevelop bool = true
 )
 
 type MongoDBAdapter struct {
@@ -39,12 +34,6 @@ type MongoDBAdapter struct {
 func New(client MongoClient, databaseName string, collectionName string, defaultTTL time.Duration) (cacheadapters.CacheAdapter, error) {
 	if client == nil {
 		return nil, ErrNilClient
-	}
-
-	if isDevelop {
-		if err := client.Ping(ctx.TODO(), nil); err != nil {
-			return nil, ErrSessionClosed
-		}
 	}
 
 	databaseName = strings.TrimSpace(databaseName)
@@ -70,11 +59,6 @@ func New(client MongoClient, databaseName string, collectionName string, default
 }
 
 func (ma *MongoDBAdapter) OpenSession() (cacheadapters.CacheSessionAdapter, error) {
-	if isDevelop {
-		if err := ma.client.Ping(ctx.Background(), nil); err != nil {
-			return nil, ErrSessionClosed
-		}
-	}
 	mongoSession, err := ma.client.StartSession()
 	if err != nil {
 		return nil, err

@@ -21,11 +21,12 @@ import (
 	mongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/sbansal7/memongo"
+	"github.com/tryvium-travels/memongo"
+	"github.com/tryvium-travels/memongo/memongolog"
 )
 
 const (
-	mongoDBVersion string        = "4.4.6" // "4.2.1"
+	mongoDBVersion string        = "4.2.1"
 	testDatabase   string        = "test_database"
 	testCollection string        = "test_collection"
 	testDefaultTTL time.Duration = time.Millisecond * 50
@@ -55,6 +56,7 @@ var (
 	testMongoOptions *memongo.Options = &memongo.Options{
 		MongoVersion:   mongoDBVersion,
 		StartupTimeout: 10 * time.Second,
+		LogLevel:       memongolog.LogLevelSilent,
 	}
 )
 
