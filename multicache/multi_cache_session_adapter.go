@@ -1,4 +1,4 @@
-// Copyright 2021 Tryvium Travels LTD
+// Copyright 2023 Tryvium Travels LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,8 +37,8 @@ type MultiCacheSessionAdapter struct {
 // index-based priority array of cache adapters (called sub-adapters) and a
 // flag instructing to show warning (non-fatal) errors.
 //
-//     index-based means that the array at the first position(s) will
-//     have more priority than those at latter positions.
+//	index-based means that the array at the first position(s) will
+//	have more priority than those at latter positions.
 func NewSession(adapters ...cacheadapters.CacheSessionAdapter) (*MultiCacheSessionAdapter, error) {
 	finalAdapters := make([]cacheadapters.CacheSessionAdapter, 0, len(adapters))
 	for _, adapter := range adapters {
@@ -60,19 +60,19 @@ func NewSession(adapters ...cacheadapters.CacheSessionAdapter) (*MultiCacheSessi
 // The operations concluded successfully. You can then log the warning
 // using your favourite tool (like sentry).
 //
-//     Warning errors, if shown need different handling from traditional
-//     errors. Use the helper IsWarning(error err) to check for warnings.
+//	Warning errors, if shown need different handling from traditional
+//	errors. Use the helper IsWarning(error err) to check for warnings.
 //
 // Example of handling of warnings:
 //
-//     err := adapter.Get("key", &objRef)
-//     if (cacheadapters.IsWarning(err)) {
-//	       // log the error, but use objRef safely
-//     } else if err != nil {
-//         // log the error and handle a failure
-//         // you cannot use objRef safely here
-//     }
-//     // else use objRef safely without any error
+//	    err := adapter.Get("key", &objRef)
+//	    if (cacheadapters.IsWarning(err)) {
+//		       // log the error, but use objRef safely
+//	    } else if err != nil {
+//	        // log the error and handle a failure
+//	        // you cannot use objRef safely here
+//	    }
+//	    // else use objRef safely without any error
 func (mcsa *MultiCacheSessionAdapter) EnableWarnings() {
 	mcsa.showWarnings = true
 }
@@ -83,19 +83,19 @@ func (mcsa *MultiCacheSessionAdapter) EnableWarnings() {
 // The operations concluded successfully. You can then log the warning
 // using your favourite tool (like sentry).
 //
-//     Warning errors, if shown need different handling from traditional
-//     errors. Use the helper IsWarning(error err) to check for warnings.
+//	Warning errors, if shown need different handling from traditional
+//	errors. Use the helper IsWarning(error err) to check for warnings.
 //
 // Example of handling of warnings:
 //
-//     err := adapter.Get("key", &objRef)
-//     if (errors.Is(cacheadapter.ErrWarning)) {
-//	       // log the error, but use objRef safely
-//     } else if err != nil {
-//         // log the error and handle a failure
-//         // you cannot use objRef safely here
-//     }
-//     // else use objRef safely without any error
+//	    err := adapter.Get("key", &objRef)
+//	    if (errors.Is(cacheadapter.ErrWarning)) {
+//		       // log the error, but use objRef safely
+//	    } else if err != nil {
+//	        // log the error and handle a failure
+//	        // you cannot use objRef safely here
+//	    }
+//	    // else use objRef safely without any error
 func (mcsa *MultiCacheSessionAdapter) DisableWarnings() {
 	mcsa.showWarnings = false
 }

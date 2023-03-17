@@ -1,4 +1,4 @@
-<p align="center"><img src="https://res.cloudinary.com/tryvium/image/upload/v1551645701/company/logo-circle.png"/></p>
+<p align="center"><img src="https://i.imgur.com/Fq80eXT.png"/></p>
 
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/tryvium-travels/golang-cache-adapters?style=flat-square)
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/tryvium-travels/golang-cache-adapters)

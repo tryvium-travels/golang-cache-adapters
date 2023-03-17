@@ -1,4 +1,4 @@
-// Copyright 2021 Tryvium Travels LTD
+// Copyright 2023 Tryvium Travels LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,5 @@
 // CacheAdapter and CacheSessionAdapter for Redis clusters, along
 // with some helper methods to create instances.
 //
-//     More info on Redis at https://redis.io
-//
+//	More info on Redis at https://redis.io
 package rediscacheadapters
